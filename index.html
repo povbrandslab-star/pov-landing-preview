@@ -3839,6 +3839,9 @@ render(true);
 .ipt__c{display:inline-block; transform:translateY(135%);
   transition:transform 1s cubic-bezier(.16,1,.3,1); transition-delay:calc(var(--i) * 17.5ms)}
 .ipt.is-txt .ipt__c{transform:none}
+/* al primer scroll la frase sale por arriba, por la misma máscara */
+.ipt.is-txt.is-out .ipt__c{transform:translateY(-135%);
+  transition:transform .55s cubic-bezier(.55,0,.75,.2); transition-delay:calc(var(--i) * 8ms)}
 .ipt__it{font-family:"PP Editorial New",Georgia,serif; font-style:italic; font-weight:400;
   font-size:1.06em; letter-spacing:-.01em}
 .ipt__sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
@@ -4217,7 +4220,7 @@ render(true);
   }
 
   /* ---------- 2-5 · construcción, relleno, la O, el círculo ---------- */
-  const drawBuild = (t, time) => {
+  const drawBuild = (t, time, ov) => {   /* ov = {dr, g}: lo manda el scroll tras la pausa */
     const tc = t;
     const z = 2.4 - 1.4 * eio(sp(tc, T.zoom));
     const X = cam({x:base.x, y:base.y, s:base.s * z});
@@ -4248,7 +4251,8 @@ render(true);
     }
 
     /* la O, debajo del relleno: se inunda de color */
-    const txp = eo(sp(tc, T.tex)), dr = eio(sp(tc, T.drain)), g = eioQ(sp(tc, T.grow));
+    const txp = eo(sp(tc, T.tex));
+    const dr = ov ? ov.dr : eio(sp(tc, T.drain)), g = ov ? ov.g : eioQ(sp(tc, T.grow));
     const C = X(O), r0 = O.r * base.s * z;
     if(txp > 0){
       const R = Math.hypot(Math.max(C.x, W - C.x), Math.max(C.y, H - C.y)) * 1.08;
@@ -4287,18 +4291,85 @@ render(true);
     });
   };
 
+  /* ---------- tras la pausa: el punto se despliega con el scroll (Doris, 2026-11-23) ----------
+     Referencia itsoffbrand. Dos pasos de scroll hacia abajo: 1 · la frase sale, la P y la V
+     se vacían y el punto empieza a abrirse · 2 · el punto cubre la pantalla. Desde ahí el
+     scroll ya mueve la página. Scroll hacia arriba arriba del todo = vuelta al estado quieto.
+     s va de 0 a 2 y se interpola en el tiempo hacia el paso pedido (sTo). */
+  const STEP_DUR = 1.15, BACK_DUR = 1.4;
+  let sFrom = 0, sTo = 0, sAt = 0, sDur = 1, tNow = 0;
+  const stepNow = now => sFrom + (sTo - sFrom) * eio(cl((now - sAt) / 1000 / sDur));
+  const stageOv = s => ({
+    dr: cl(s / .7),                                          /* se vacían en el primer paso */
+    g: s <= 1 ? .26 * eo(cl((s - .4) / .6)) : .26 + .74 * (s - 1)   /* abre un poco · cubre todo */
+  });
+  const goStep = n => {
+    if(n === sTo) return false;
+    const now = performance.now(), cur = stepNow(now);
+    sFrom = reduce ? n : cur; sTo = n; sAt = now;
+    sDur = n < cur ? BACK_DUR * Math.max(.5, (cur - n) / 2) : STEP_DUR;
+    if(!raf) raf = requestAnimationFrame(loop);
+    return true;
+  };
+  const atTop = () => scrollY <= 2 && tNow >= HOLD;
+  /* un gesto de trackpad dispara decenas de eventos: un paso por gesto */
+  let lastWheel = 0, lastStep = 0, topAt = 0;
+  addEventListener("scroll", () => { if(scrollY <= 2) topAt = performance.now(); }, {passive:true});
+  const tryStep = dir => {
+    const now = performance.now();
+    if(dir > 0 && sTo < 2){
+      if(now - lastStep > 650) { goStep(sTo + 1); lastStep = now; }
+      return true;
+    }
+    if(dir < 0 && sTo > 0){
+      if(now - lastStep > 650 && now - topAt > 300){ goStep(0); lastStep = now; }
+      return true;
+    }
+    return false;
+  };
+  addEventListener("wheel", e => {
+    if(!atTop() || Math.abs(e.deltaY) < 1) return;
+    const now = performance.now(), fresh = now - lastWheel > 180; lastWheel = now;
+    const dir = Math.sign(e.deltaY);
+    if((dir > 0 && sTo < 2) || (dir < 0 && sTo > 0)){
+      e.preventDefault();
+      /* hacia abajo, un gesto largo puede dar los dos pasos; hacia arriba hace falta un
+         gesto nuevo, si no la inercia que te trae al tope te devolvería sin querer */
+      if(fresh || (dir > 0 && now - lastStep > 1300)) tryStep(dir);
+    }
+  }, {passive:false});
+  let ty = null;
+  addEventListener("touchstart", e => { ty = e.touches[0].clientY; }, {passive:true});
+  addEventListener("touchmove", e => {
+    if(ty === null || !atTop()) return;
+    const dy = ty - e.touches[0].clientY, dir = Math.sign(dy);
+    if((dir > 0 && sTo < 2) || (dir < 0 && sTo > 0)){
+      e.preventDefault();
+      if(Math.abs(dy) > 30){ tryStep(dir); ty = null; }
+    }
+  }, {passive:false});
+  addEventListener("touchend", () => { ty = null; }, {passive:true});
+  addEventListener("keydown", e => {
+    if(!atTop() || e.target.closest && e.target.closest("input,textarea,select,[contenteditable]")) return;
+    const dir = ["ArrowDown", "PageDown", " "].includes(e.key) ? 1 : ["ArrowUp", "PageUp"].includes(e.key) ? -1 : 0;
+    if(dir && tryStep(dir)) e.preventDefault();
+  });
+
   const frame = (t, now) => {
+    tNow = t;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const time = now / 1000;
     if(t < MACRO){
       let a = 0; for(const sh of SHOTS){ if(t < a + sh.dur){ drawMacro(sh, t - a); break; } a += sh.dur; }
-    } else drawBuild(t, time);
+    } else drawBuild(t, time, t >= HOLD ? stageOv(stepNow(now)) : null);
     /* grano */
     if(!grain) grain = makeGrain();
     ctx.save(); ctx.translate((Math.floor(time * 24) * 37) % 160, (Math.floor(time * 24) * 53) % 160);
     ctx.fillStyle = grain; ctx.fillRect(-160, -160, W + 320, H + 320); ctx.restore();
     box.classList.toggle("is-on", t >= T.on);
     if(t >= TXT_AT) box.classList.add("is-txt");
+    /* de vuelta, la frase espera a que el punto casi haya vuelto a su sitio */
+    box.classList.toggle("is-out", sTo > 0 || stepNow(now) > .3);
   };
 
   /* Sin movimiento: directo al final. Si no, una pasada; luego la textura sigue
