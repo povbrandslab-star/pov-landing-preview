@@ -275,6 +275,31 @@ body{margin:0; background:#191918}
 @media(min-width:920px){.contacto__grid{grid-template-columns:.72fr 1.28fr; align-items:start}}
 </style>
 
+<!-- INTRO · EL PUNTO (2026-11-23). Va FUERA de #stage a propósito: render() rehace
+     #stage al cambiar idioma o paleta y la entrada se repetiría. Una sola pasada por carga. -->
+<section class="ipt" id="intro" aria-label="POV Brands Lab">
+  <div class="ipt__cut">
+    <div class="ipt__fill">
+      <canvas class="ipt__tex"></canvas>
+      <video class="ipt__vid" muted playsinline loop preload="auto" aria-hidden="true"></video>
+    </div>
+  </div>
+  <svg class="ipt__logo" viewBox="0 0 130.91 65.6532" aria-hidden="true" focusable="false">
+    <defs><clipPath id="iptPour"><rect class="ipt__pour" x="-2" y="67" width="135" height="0"/></clipPath></defs>
+    <g class="ipt__solid" clip-path="url(#iptPour)">
+      <path d="M63.0111 0.0402075L63.0283 0.0804151C78.1119 3.15342 89.4561 16.4966 89.4561 32.4877C89.4561 38.8347 87.664 44.7682 84.5623 49.7999L84.6887 50.0871L93.3333 65.6474L130.91 0L63.0111 0.0402075Z"/>
+      <path d="M0 0V63.8955C13.6246 63.8955 26.2555 59.6335 36.6233 52.3502C39.6791 50.2192 42.5396 47.8068 45.176 45.176C49.5759 40.7819 53.3324 35.7445 56.3078 30.2188C59.4842 23.1021 61.2533 15.2157 61.2533 6.91569C61.2533 4.57217 61.1097 2.2631 60.834 0H0Z"/>
+    </g>
+    <g class="ipt__lines">
+      <path class="ipt__ln" pathLength="100" d="M0 0V63.8955C13.6246 63.8955 26.2555 59.6335 36.6233 52.3502C39.6791 50.2192 42.5396 47.8068 45.176 45.176C49.5759 40.7819 53.3324 35.7445 56.3078 30.2188C59.4842 23.1021 61.2533 15.2157 61.2533 6.91569C61.2533 4.57217 61.1097 2.2631 60.834 0H0Z"/>
+      <circle class="ipt__ln" pathLength="100" cx="56.37" cy="32.49" r="33.09" transform="rotate(-90 56.37 32.49)"/>
+      <path class="ipt__ln" pathLength="100" d="M63.0111 0.0402075L63.0283 0.0804151C78.1119 3.15342 89.4561 16.4966 89.4561 32.4877C89.4561 38.8347 87.664 44.7682 84.5623 49.7999L84.6887 50.0871L93.3333 65.6474L130.91 0L63.0111 0.0402075Z"/>
+    </g>
+  </svg>
+  <div class="ipt__count" aria-hidden="true"><span class="ipt__lbl">Cargando</span><span class="ipt__num">000</span></div>
+  <a class="ipt__down" href="#stage" aria-label="Ir al contenido">&#8595;</a>
+</section>
+
 <main class="stage" id="stage"></main>
 
 <script>
@@ -3793,5 +3818,185 @@ render(true);
   .manifiesto__line--scrub .ml__ln + .ml__ln::before{content:" "}
 }
 </style>
+
+<style>
+/* ---- INTRO · EL PUNTO (2026-11-23) ----
+   Referencia: el loader de itsoffbrand.com. 1 se dibuja el contorno de la P,
+   la O escondida y la V · 2 la P y la V se llenan de hueso, de abajo arriba ·
+   3 la O se inunda de textura · 4 la P y la V se vacían y queda el círculo
+   entero · 5 el círculo cubre la pantalla y dentro entra el vídeo. */
+.ipt{position:relative; height:100vh; height:100svh; overflow:hidden; background:#191918; color:#E0DED5;
+  font-family:"Neue Haas Grotesk Display",system-ui,sans-serif}
+.ipt__cut,.ipt__fill,.ipt__tex,.ipt__vid{position:absolute; inset:0; width:100%; height:100%}
+.ipt__fill{clip-path:circle(0px at 50% 50%)}
+.ipt__vid{object-fit:cover; opacity:0}
+.ipt__logo{position:absolute; overflow:visible}
+.ipt__solid{fill:#E0DED5}
+.ipt__ln{fill:none; stroke:#E0DED5; stroke-opacity:.5; stroke-dasharray:101 101; stroke-dashoffset:101}
+.ipt__count{position:absolute; display:flex; gap:30px; font-size:13px; letter-spacing:.04em;
+  text-transform:uppercase; font-variant-numeric:tabular-nums; opacity:0; pointer-events:none}
+.ipt__down{position:absolute; right:clamp(18px,3vw,40px); bottom:clamp(18px,3vw,36px); width:44px; height:44px;
+  display:grid; place-items:center; border-radius:50%; color:#E0DED5; text-decoration:none; font-size:18px;
+  border:1px solid rgba(224,222,213,.45); background:rgba(25,25,24,.35); backdrop-filter:blur(6px);
+  opacity:0; transform:translateY(8px); transition:opacity .5s, transform .5s, border-color .2s}
+.ipt__down:hover,.ipt__down:focus-visible{border-color:#E0DED5}
+.ipt.is-done .ipt__down{opacity:1; transform:none}
+</style>
+
+<script>
+/* INTRO · EL PUNTO. Runtime propio, fuera de render(). */
+(() => {
+  const box = document.getElementById("intro");
+  if(!box) return;
+  /* Vídeo del punto: poner aquí la ruta (p. ej. "assets/hero-video.mp4").
+     Vacío = se queda la textura a pantalla completa. */
+  const INTRO_VIDEO = "";
+
+  const VB_W = 130.91, VB_H = 65.6532;
+  const O = {x:56.37, y:32.49, r:33.09};   /* la O: el arco izquierdo de la V, completado */
+  const T = {
+    draw0:.25, draw:1.10, dO:.20, dV:.30,  /* contorno */
+    pour0:1.55, pour:.80,                  /* el hueso sube */
+    tex0:2.25, tex:.80,                    /* la O se inunda */
+    drain0:3.35, drain:.60,                /* P y V se vacían */
+    grow0:4.20, grow:1.25,                 /* el círculo cubre la pantalla */
+    vid0:4.80, vid:.80
+  };
+  const END = T.vid0 + T.vid;
+
+  const q = s => box.querySelector(s);
+  const fill = q(".ipt__fill"), cut = q(".ipt__cut"), logo = q(".ipt__logo"), count = q(".ipt__count"),
+        num = q(".ipt__num"), linesG = q(".ipt__lines"), pour = q(".ipt__pour"),
+        tex = q(".ipt__tex"), ctx = tex.getContext("2d"), vid = q(".ipt__vid");
+  const lines = [...box.querySelectorAll(".ipt__ln")];
+  if((document.documentElement.lang || "").startsWith("en")){
+    q(".ipt__lbl").textContent = "Loading";
+    q(".ipt__down").setAttribute("aria-label", "Go to content");
+  }
+
+  const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
+  const span = (t, a, d) => cl((t - a) / d);
+  const eio = p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
+  const eo = p => 1 - Math.pow(1 - p, 3);
+  const eioQ = p => p < .5 ? 8*p*p*p*p : 1 - Math.pow(-2*p + 2, 4) / 2;
+
+  let G = null;
+  const layout = () => {
+    const vw = box.clientWidth, vh = box.clientHeight;
+    const w = Math.min(vw < 720 ? vw * .62 : vw * .34, 520);
+    const s = w / VB_W, h = VB_H * s;
+    const left = (vw - w) / 2, top = (vh - h) / 2;
+    Object.assign(logo.style, {left:left + "px", top:top + "px", width:w + "px", height:h + "px"});
+    lines.forEach(l => l.style.strokeWidth = (1 / s).toFixed(4));
+    const cx = left + O.x * s, cy = top + O.y * s, r0 = O.r * s;
+    count.style.left = (cx - r0 * .35) + "px";
+    count.style.top = (top + h + Math.max(22, h * .14)) + "px";
+    const k = 1 / 3;   /* textura a 1/3: el reescalado ya la suaviza */
+    tex.width = Math.max(2, Math.round(vw * k)); tex.height = Math.max(2, Math.round(vh * k));
+    G = {top, cx, cy, r0, k, R:Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy)) * 1.08};
+  };
+
+  /* Manchas de la paleta de POV; viven en coordenadas del círculo y crecen con él */
+  const BLOBS = [
+    {c:"240,236,226", x:-.28, y:-.40, s:1.05, a:1,   f:.31, p:0  },  /* hueso: el brillo */
+    {c:"212,91,61",   x: .05, y:-.05, s:.80,  a:.95, f:.23, p:1.7},  /* #D45B3D */
+    {c:"176,48,30",   x:-.50, y: .15, s:.62,  a:.85, f:.27, p:3.1},  /* #B0301E */
+    {c:"221,126,102", x: .25, y: .48, s:.70,  a:.80, f:.19, p:4.4},  /* #DD7E66 */
+    {c:"142,176,199", x: .58, y: .28, s:.68,  a:.95, f:.29, p:2.3},  /* #8EB0C7 */
+    {c:"176,200,216", x: .48, y:-.55, s:.50,  a:.70, f:.21, p:5.2},  /* #B0C8D8 */
+    {c:"165,139,255", x:-.10, y: .70, s:.38,  a:.35, f:.17, p:.9 }   /* el morado del proceso */
+  ];
+  const paintTex = (cx, cy, r, time, flat) => {
+    const k = G.k, X = cx * k, Y = cy * k, Rr = r * k, W = tex.width, H = tex.height;
+    ctx.fillStyle = "#D45B3D"; ctx.fillRect(0, 0, W, H);
+    for(const b of BLOBS){
+      const bx = X + Rr * (b.x + .22 * Math.sin(time * b.f * 2.1 + b.p));
+      const by = Y + Rr * (b.y + .22 * Math.cos(time * b.f * 1.7 + b.p * 1.3));
+      const br = Rr * b.s * (1 + .12 * Math.sin(time * b.f * 3 + b.p));
+      const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, `rgba(${b.c},${b.a})`); g.addColorStop(1, `rgba(${b.c},0)`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    if(flat < 1){   /* volumen de esfera; se aplana al crecer */
+      const g = ctx.createRadialGradient(X - Rr * .35, Y - Rr * .4, Rr * .2, X, Y, Rr * 1.05);
+      g.addColorStop(0, "rgba(25,25,24,0)"); g.addColorStop(.75, "rgba(25,25,24,0)");
+      g.addColorStop(1, `rgba(25,25,24,${.38 * (1 - flat)})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+  };
+
+  /* Círculo perfecto mientras es logo; borde algo orgánico mientras crece */
+  const shape = (cx, cy, r, wob, time) => {
+    if(wob < .001) return `circle(${r.toFixed(2)}px at ${cx.toFixed(2)}px ${cy.toFixed(2)}px)`;
+    const pts = [];
+    for(let i = 0; i < 120; i++){
+      const a = i / 120 * Math.PI * 2;
+      const rr = r * (1 + wob * (.6 * Math.sin(3 * a + time * 1.7) + .4 * Math.sin(5 * a - time * 2.3 + 1)));
+      pts.push(`${(cx + rr * Math.cos(a)).toFixed(1)}px ${(cy + rr * Math.sin(a)).toFixed(1)}px`);
+    }
+    return `polygon(${pts.join(",")})`;
+  };
+
+  let vidOK = false;
+  if(INTRO_VIDEO){
+    vid.addEventListener("loadeddata", () => { vidOK = true; });
+    vid.addEventListener("error", () => { vidOK = false; vid.remove(); }, true);
+    vid.src = INTRO_VIDEO;
+  } else vid.remove();
+
+  const frame = (t, now) => {
+    const {cx, cy, r0, R} = G;
+    [T.draw0, T.draw0 + T.dO, T.draw0 + T.dV].forEach((a, i) => {
+      lines[i].style.strokeDashoffset = (101 - eio(span(t, a, T.draw)) * 101).toFixed(2);
+    });
+    linesG.style.opacity = 1 - eo(span(t, T.drain0 + .15, .45));
+
+    const up = eio(span(t, T.pour0, T.pour)), down = eio(span(t, T.drain0, T.drain));
+    const yTop = 67 - up * 69, yBot = 67 - down * 69;   /* sube de abajo; se vacía desde abajo */
+    pour.setAttribute("y", yTop.toFixed(3));
+    pour.setAttribute("height", Math.max(0, yBot - yTop).toFixed(3));
+
+    num.textContent = String(Math.round(100 * cl((t - T.draw0) / (T.tex0 + T.tex - T.draw0)))).padStart(3, "0");
+    count.style.opacity = eo(span(t, T.draw0, .4)) * (1 - eo(span(t, T.drain0, .35)));
+
+    const tx = eo(span(t, T.tex0, T.tex)), g = eioQ(span(t, T.grow0, T.grow));
+    let r = tx <= 0 ? 0 : r0 * (.18 + .82 * tx);
+    if(r) r += (R - r0) * g;
+    const wob = .026 * Math.sin(Math.PI * g) + .012 * eo(span(t, T.drain0 + T.drain, .3)) * (1 - g);
+    fill.style.clipPath = t >= END ? "none" : shape(cx, cy, r, wob, now / 1000);
+    fill.style.opacity = eo(span(t, T.tex0, T.tex * .6));
+    /* mientras es logo, el círculo no asoma por encima del borde del logo */
+    cut.style.clipPath = down < .5 ? `inset(${G.top.toFixed(1)}px 0 0 0)` : "none";
+
+    if(!(vidOK && t >= END)) paintTex(cx, cy, Math.max(r, r0), now / 1000, g);
+    if(vidOK){
+      if(t >= T.grow0 && vid.paused) vid.play().catch(() => {});
+      vid.style.opacity = eo(span(t, T.vid0, T.vid));
+    }
+    box.classList.toggle("is-done", t >= END);
+  };
+
+  /* Sin movimiento: directo al final. Si no, una pasada y la textura sigue
+     respirando mientras el intro esté en pantalla. */
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let start = null, raf = 0, visible = true;
+  const loop = now => {
+    raf = 0;
+    if(start === null) start = now;
+    const t = reduce ? END + 1 : Math.min((now - start) / 1000, END + 1);
+    frame(t, now);
+    if(visible && !(t > END && (reduce || vidOK))) raf = requestAnimationFrame(loop);
+  };
+  layout();
+  addEventListener("resize", () => { layout(); if(!raf) raf = requestAnimationFrame(loop); });
+  if("IntersectionObserver" in window){
+    new IntersectionObserver(es => es.forEach(e => {
+      visible = e.isIntersecting;
+      if(visible && !raf) raf = requestAnimationFrame(loop);
+    })).observe(box);
+  }
+  raf = requestAnimationFrame(loop);
+})();
+</script>
 </body>
 </html>
