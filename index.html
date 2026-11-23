@@ -280,6 +280,7 @@ body{margin:0; background:#191918}
 <section class="ipt" id="intro" aria-label="POV Brands Lab">
   <canvas class="ipt__cv" aria-hidden="true"></canvas>
   <video class="ipt__vid" muted playsinline loop preload="auto" aria-hidden="true"></video>
+  <p class="ipt__txt"></p>
   <a class="ipt__down" href="#stage" aria-label="Ir al contenido">&#8595;</a>
 </section>
 
@@ -3818,6 +3819,35 @@ render(true);
   opacity:0; transform:translateY(8px); transition:opacity .6s, transform .6s, border-color .2s}
 .ipt__down:hover,.ipt__down:focus-visible{border-color:#E0DED5}
 .ipt.is-on .ipt__down{opacity:1; transform:none}
+
+/* Frase del intro (2026-11-23): aparece con el logo ya quieto, a los dos lados
+   de la marca. Entrada de la referencia extrafazant: letra a letra, cada renglón
+   con máscara, sube desde 135 % en 1 s con expo.out y 17,5 ms entre letras.
+   Mezcla de tipos como allí: grotesca + serif fina, aquí Neue Haas + Editorial
+   New itálica. El JS fija --lw/--lh (caja del logo) y el cuerpo. */
+.ipt__txt{position:absolute; inset:0; margin:0; z-index:1; pointer-events:none;
+  display:grid; grid-template-columns:1fr var(--lw,300px) 1fr; align-items:center;
+  column-gap:clamp(22px,3vw,56px); padding:0 clamp(14px,2.2vw,32px);
+  color:#E0DED5; font-family:"Neue Haas Grotesk Display",system-ui,sans-serif;
+  font-weight:500; line-height:.94; letter-spacing:-.035em; word-spacing:.1em; font-size:64px}
+.ipt__half{grid-row:1; min-width:0}
+.ipt__half--l{grid-column:1; justify-self:end; text-align:right}
+.ipt__half--r{grid-column:3; justify-self:start; text-align:left}
+.ipt__ln{display:block; overflow:hidden; white-space:nowrap;
+  padding:.04em .14em .16em; margin:-.04em -.14em -.16em}
+.ipt__in{display:inline-block}
+.ipt__c{display:inline-block; transform:translateY(135%);
+  transition:transform 1s cubic-bezier(.16,1,.3,1); transition-delay:calc(var(--i) * 17.5ms)}
+.ipt.is-txt .ipt__c{transform:none}
+.ipt__it{font-family:"PP Editorial New",Georgia,serif; font-style:italic; font-weight:400;
+  font-size:1.06em; letter-spacing:-.01em}
+.ipt__sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+/* sin sitio a los lados (móvil): la frase va encima y debajo del logo */
+.ipt__txt.is-stack{grid-template-columns:1fr; grid-template-rows:1fr var(--lh,150px) 1fr; row-gap:clamp(18px,4vh,36px)}
+.ipt__txt.is-stack .ipt__half{grid-column:1; justify-self:center; text-align:center}
+.ipt__txt.is-stack .ipt__half--l{grid-row:1; align-self:end}
+.ipt__txt.is-stack .ipt__half--r{grid-row:3; align-self:start}
+@media (prefers-reduced-motion:reduce){ .ipt__c{transition:none} }
 </style>
 
 <script>
@@ -3957,10 +3987,15 @@ render(true);
     tex:[K + 4.0, .9],
     drain:[K + 5.0, .9],
     grow:[K + 5.9, 1.4],
-    vid:[K + 6.4, .8],
+    vid:[K + 4.2, .8],
     on: 1.2
   };
   const END = T.grow[0] + T.grow[1];
+  /* Doris (2026-11-23): la animación se queda QUIETA cuando la O ya tiene su
+     color y la P y la V siguen llenas — justo antes del vaciado — y ahí entra
+     la frase. drain/grow siguen definidos pero la línea de tiempo no llega. */
+  const HOLD = T.drain[0];
+  const TXT_AT = HOLD;   /* el reloj se clava en HOLD: no puede ser posterior */
 
   /* ---------- curvas ---------- */
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -3978,7 +4013,57 @@ render(true);
     tex.width = Math.max(2, Math.round(W / 3)); tex.height = Math.max(2, Math.round(H / 3));
     const w = Math.min(W < 720 ? W * .62 : W * .34, 520);
     base = {x:VB_W / 2, y:VB_H / 2, s:w / VB_W};
+    fitTxt(w, w * VB_H / VB_W);
   };
+
+  /* ---------- la frase: «Diseño estratégico [logo] que impulsa tu marca» ----------
+     _palabra_ = Editorial New itálica; el resto, Neue Haas. Dos renglones por lado. */
+  const txt = box.querySelector(".ipt__txt");
+  const PHRASE = {
+    es:{l:["Diseño", "_estratégico_"], r:["que _impulsa_", "tu marca"], all:"Diseño estratégico que impulsa tu marca"},
+    en:{l:["Strategic", "_design_"],   r:["that _drives_", "your brand"], all:"Strategic design that drives your brand"}
+  };
+  let txtLang = null, logoW = 0, logoH = 0;
+  const buildTxt = () => {
+    const L = document.documentElement.lang === "en" ? "en" : "es";   /* `lang` no es global */
+    if(L === txtLang) return; txtLang = L;
+    const ph = PHRASE[L]; let i = 0;
+    const line = s => '<span class="ipt__ln"><span class="ipt__in">' + s.split(" ").map(w => {
+      const it = /^_.*_$/.test(w), word = it ? w.slice(1, -1) : w;
+      const cs = [...word].map(ch => `<span class="ipt__c" style="--i:${i++}">${ch}</span>`).join("");
+      i++;   /* el espacio también cuenta en la cadencia */
+      return it ? `<span class="ipt__it">${cs}</span>` : cs;
+    }).join(" ") + "</span></span>";
+    txt.innerHTML = `<span class="ipt__sr">${ph.all}</span>` +
+      `<span class="ipt__half ipt__half--l" aria-hidden="true">${ph.l.map(line).join("")}</span>` +
+      `<span class="ipt__half ipt__half--r" aria-hidden="true">${ph.r.map(line).join("")}</span>`;
+  };
+  /* Cuerpo: se mide la frase a 100 px una vez por resize (leer y escribir en la
+     misma tarea) y se escala para que quepa al lado del logo; si no cabe con un
+     cuerpo digno, va encima y debajo. */
+  const fitTxt = (lw, lh) => {
+    if(!txt.firstChild) return;
+    logoW = lw; logoH = lh;
+    box.style.setProperty("--lw", lw + "px"); box.style.setProperty("--lh", lh + "px");
+    txt.style.fontSize = "100px";
+    const ws = [...txt.querySelectorAll(".ipt__in")].map(e => e.offsetWidth);
+    const wl = Math.max(1, ...ws);
+    const cs = getComputedStyle(txt), pad = parseFloat(cs.paddingLeft) || 0, gap = parseFloat(cs.columnGap) || 0;
+    const side = (W - lw) / 2 - gap - pad;
+    let fs = Math.min(lh * .42, 100 * side / wl);
+    const stack = W < 720 || fs < 40;
+    if(stack){
+      const room = (H - lh) / 2 - 48;   /* dos renglones por mitad, con aire */
+      fs = Math.min(100 * (W - pad * 2) / wl, room / 2.1, 72);
+    }
+    txt.classList.toggle("is-stack", stack);
+    txt.style.fontSize = Math.max(18, fs) + "px";
+  };
+  buildTxt();
+  if(document.fonts) document.fonts.ready.then(() => { if(logoW) fitTxt(logoW, logoH); });
+  /* ES/EN: render() cambia <html lang>; la frase se rehace ya revelada */
+  new MutationObserver(() => { buildTxt(); if(logoW) fitTxt(logoW, logoH); })
+    .observe(document.documentElement, {attributes:true, attributeFilter:["lang"]});
   const cam = c => p => ({x:W / 2 + (p.x - c.x) * c.s, y:H / 2 + (p.y - c.y) * c.s});
 
   /* grano sutil, como en las piezas de motion */
@@ -4213,6 +4298,7 @@ render(true);
     ctx.save(); ctx.translate((Math.floor(time * 24) * 37) % 160, (Math.floor(time * 24) * 53) % 160);
     ctx.fillStyle = grain; ctx.fillRect(-160, -160, W + 320, H + 320); ctx.restore();
     box.classList.toggle("is-on", t >= T.on);
+    if(t >= TXT_AT) box.classList.add("is-txt");
   };
 
   /* Sin movimiento: directo al final. Si no, una pasada; luego la textura sigue
@@ -4222,7 +4308,7 @@ render(true);
   const loop = now => {
     raf = 0;
     if(start === null) start = now;
-    const t = reduce ? END : Math.min((now - start) / 1000, END);
+    const t = reduce ? HOLD : Math.min((now - start) / 1000, HOLD);
     frame(t, now);
     if(visible && !reduce) raf = requestAnimationFrame(loop);
   };
