@@ -280,7 +280,8 @@ body{margin:0; background:#191918}
 <section class="ipt" id="intro" aria-label="POV Brands Lab">
   <canvas class="ipt__cv" aria-hidden="true"></canvas>
   <video class="ipt__vid" muted playsinline loop preload="auto" aria-hidden="true"></video>
-  <p class="ipt__txt"></p>
+  <h1 class="ipt__txt"></h1>
+  <p class="ipt__sub" aria-live="off"><span></span></p>
   <a class="ipt__down" href="#stage" aria-label="Ir al contenido">&#8595;</a>
 </section>
 
@@ -505,6 +506,10 @@ function heroHTML(v){
      real —una sola frase partida en dos mitades—; el lienzo de detrás solo
      dibuja las líneas de los dos globos. Por debajo de 720 px el lienzo se
      apaga y las dos mitades vuelven a leerse como un titular corriente. */
+  /* 2026-11-23: el hero de Síntesis se FUSIONÓ con el intro (titular junto al logo y
+     la frase del estudio sobre el punto). Sin sección propia; #top sin elemento =
+     arriba del todo, que es el intro. El markup de abajo queda inerte. */
+  if(v===6) return "";
   if(v===6) return `
   <section class="sec hero" id="top">
     <div class="wrap hero__in">
@@ -3851,6 +3856,13 @@ render(true);
 .ipt__txt.is-stack .ipt__half--l{grid-row:1; align-self:end}
 .ipt__txt.is-stack .ipt__half--r{grid-row:3; align-self:start}
 @media (prefers-reduced-motion:reduce){ .ipt__c{transition:none} }
+/* frase del estudio (venía del hero): aparece sobre el punto en el paso 2 y se
+   apaga cuando cubre la pantalla, para dejar solo el vídeo. Opacidad desde el JS. */
+.ipt__sub{position:absolute; inset:0; margin:0; z-index:1; pointer-events:none;
+  display:grid; place-items:center; padding:0 24px; opacity:0}
+.ipt__sub span{max-width:17ch; text-align:center; color:#191918;
+  font-family:"PP Editorial New",Georgia,serif; font-weight:400;
+  font-size:clamp(28px,3.6vw,60px); line-height:1.06; letter-spacing:-.015em; text-wrap:balance}
 </style>
 
 <script>
@@ -4023,14 +4035,18 @@ render(true);
      _palabra_ = Editorial New itálica; el resto, Neue Haas. Dos renglones por lado. */
   const txt = box.querySelector(".ipt__txt");
   const PHRASE = {
-    es:{l:["Diseño", "_estratégico_"], r:["que _impulsa_", "tu marca"], all:"Diseño estratégico que impulsa tu marca"},
-    en:{l:["Strategic", "_design_"],   r:["that _drives_", "your brand"], all:"Strategic design that drives your brand"}
+    es:{l:["Diseño", "_estratégico_"], r:["que _impulsa_", "tu marca"], all:"Diseño estratégico que impulsa tu marca",
+        sub:"Estudio boutique para founders que valoran la excelencia."},
+    en:{l:["Strategic", "_design_"],   r:["that _drives_", "your brand"], all:"Strategic design that drives your brand",
+        sub:"A boutique studio for founders who value excellence."}
   };
+  const subEl = box.querySelector(".ipt__sub"), subTx = subEl.querySelector("span");
   let txtLang = null, logoW = 0, logoH = 0;
   const buildTxt = () => {
     const L = document.documentElement.lang === "en" ? "en" : "es";   /* `lang` no es global */
     if(L === txtLang) return; txtLang = L;
     const ph = PHRASE[L]; let i = 0;
+    subTx.textContent = ph.sub;
     const line = s => '<span class="ipt__ln"><span class="ipt__in">' + s.split(" ").map(w => {
       const it = /^_.*_$/.test(w), word = it ? w.slice(1, -1) : w;
       const cs = [...word].map(ch => `<span class="ipt__c" style="--i:${i++}">${ch}</span>`).join("");
@@ -4376,7 +4392,13 @@ render(true);
     box.classList.toggle("is-on", t >= T.on);
     if(t >= TXT_AT) box.classList.add("is-txt");
     /* de vuelta, la frase espera a que el punto casi haya vuelto a su sitio */
-    box.classList.toggle("is-out", sTo > 0 || stepNow(now) > .3);
+    const sN = stepNow(now);
+    box.classList.toggle("is-out", sTo > 0 || sN > .3);
+    /* frase del estudio: entra mientras el punto se acerca en el paso 2 y se apaga
+       en el 3, cuando ya cubre la pantalla */
+    const subIn = esn(cl((sN - 1.4) / .55)), subOut = esn(cl((sN - 2.1) / .5));
+    subEl.style.opacity = (t >= HOLD ? subIn * (1 - subOut) : 0).toFixed(3);
+    subEl.style.transform = `translateY(${((1 - subIn) * 14 - subOut * 10).toFixed(1)}px)`;
   };
 
   /* Sin movimiento: directo al final. Si no, una pasada; luego la textura sigue
