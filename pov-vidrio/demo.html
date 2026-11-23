@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POV · Vidrio acanalado — demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #191918; }
+  pov-vidrio { width: 100%; height: 100vh; }
+  .hero { position: relative; height: 100vh; }
+  .copy { position: absolute; left: 72px; bottom: 96px; color: #191918; font: 400 clamp(48px, 7vw, 120px)/.92 Georgia, serif; letter-spacing: -.03em; margin: 0; }
+  .copy em { font-style: italic; }
+</style>
+</head>
+<body>
+<section class="hero">
+  <pov-vidrio poster="./vidrio-cell-2560x1440.jpg" interactive></pov-vidrio>
+  <h1 class="copy">For brands that<br>are <em>growing.</em></h1>
+</section>
+<script type="module" src="./pov-vidrio.js"></script>
+</body>
+</html>

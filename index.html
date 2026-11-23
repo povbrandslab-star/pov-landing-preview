@@ -3864,6 +3864,7 @@ render(true);
 .ipt{position:relative; height:100vh; height:100svh; overflow:hidden; background:#191918}
 .ipt__cv{position:absolute; inset:0; width:100%; height:100%; display:block}
 .ipt__vid{display:none}
+.ipt__glass{position:absolute; inset:0; width:100%; height:100%; visibility:hidden; pointer-events:none}
 .ipt__down{position:absolute; right:clamp(18px,3vw,40px); bottom:clamp(18px,3vw,36px); width:44px; height:44px;
   display:grid; place-items:center; border-radius:50%; color:#E0DED5; text-decoration:none; font-size:18px;
   font-family:"Neue Haas Grotesk Display",system-ui,sans-serif;
@@ -3925,7 +3926,6 @@ render(true);
 
   const cv = box.querySelector(".ipt__cv"), ctx = cv.getContext("2d");
   const vid = box.querySelector(".ipt__vid");
-  const tex = document.createElement("canvas"), tctx = tex.getContext("2d");
 
   const INK = "#191918", RED = "#CA4C2D", TIP = "#DD7E66";
   const cream = a => `rgba(224,222,213,${a})`;
@@ -4083,7 +4083,6 @@ render(true);
   const layout = () => {
     W = box.clientWidth; H = box.clientHeight; dpr = Math.min(devicePixelRatio || 1, 2);
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    tex.width = Math.max(2, Math.round(W / 3)); tex.height = Math.max(2, Math.round(H / 3));
     const w = Math.min(W < 720 ? W * .62 : W * .34, 520);
     base = {x:VB_W / 2, y:VB_H / 2, s:w / VB_W};
     fitTxt(w, w * VB_H / VB_W);
@@ -4247,138 +4246,48 @@ render(true);
     ctx.restore();
   };
 
-  /* ---------- textura de la O: manchas de la paleta de POV ---------- */
-  const BLOBS = [
-    {c:"240,236,226", x:-.28, y:-.40, s:1.05, a:1,   f:.31, p:0  },
-    {c:"212,91,61",   x: .05, y:-.05, s:.80,  a:.95, f:.23, p:1.7},
-    {c:"176,48,30",   x:-.50, y: .15, s:.62,  a:.85, f:.27, p:3.1},
-    {c:"221,126,102", x: .25, y: .48, s:.70,  a:.80, f:.19, p:4.4},
-    {c:"142,176,199", x: .58, y: .28, s:.68,  a:.95, f:.29, p:2.3},
-    {c:"176,200,216", x: .48, y:-.55, s:.50,  a:.70, f:.21, p:5.2},
-    {c:"165,139,255", x:-.10, y: .70, s:.38,  a:.35, f:.17, p:.9 }
-  ];
-  const paintTex = (C, r, time, flat) => {
-    const k = tex.width / W, X0 = C.x * k, Y0 = C.y * k, Rr = r * k, w = tex.width, h = tex.height;
-    tctx.fillStyle = "#D45B3D"; tctx.fillRect(0, 0, w, h);
-    for(const b of BLOBS){
-      const bx = X0 + Rr * (b.x + .22 * Math.sin(time * b.f * 2.1 + b.p));
-      const by = Y0 + Rr * (b.y + .22 * Math.cos(time * b.f * 1.7 + b.p * 1.3));
-      const br = Rr * b.s * (1 + .12 * Math.sin(time * b.f * 3 + b.p));
-      const g = tctx.createRadialGradient(bx, by, 0, bx, by, br);
-      g.addColorStop(0, `rgba(${b.c},${b.a})`); g.addColorStop(1, `rgba(${b.c},0)`);
-      tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
-    }
-    if(flat < 1){
-      const g = tctx.createRadialGradient(X0 - Rr * .35, Y0 - Rr * .4, Rr * .2, X0, Y0, Rr * 1.05);
-      g.addColorStop(0, "rgba(25,25,24,0)"); g.addColorStop(.75, "rgba(25,25,24,0)");
-      g.addColorStop(1, `rgba(25,25,24,${.38 * (1 - flat)})`);
-      tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
-    }
+  /* ---------- vidrio acanalado (Cell): recurso ORIGINAL pov-vidrio/pov-vidrio.js ----------
+     Doris (2026-11-23): se usa el archivo tal cual, con createVidrio() y sus valores por
+     defecto. No se reescribe el shader ni se tocan los colores; si hiciera falta ajustar
+     algo, solo con las opciones del README (blob, softness, drift) vía setOptions.
+     Su canvas vive en el DOM, oculto bajo el del intro (createVidrio mide clientWidth/Height
+     y se pausa solo con IntersectionObserver), y se copia dentro del punto en cada
+     fotograma: el punto es una ventana al campo de vidrio a pantalla completa, así que
+     al cubrir la pantalla se ve igual que el póster. Se crea cuando la O empieza a
+     llenarse, para que su rack focus de 1,8 s coincida con ese momento.
+     Sin WebGL (o abierto con file://, donde no cargan los módulos): el póster, vertical en móvil. */
+  const VIDRIO_DIR = "pov-vidrio/";
+  const vcv = document.createElement("canvas");
+  vcv.className = "ipt__glass"; vcv.setAttribute("aria-hidden", "true");
+  box.insertBefore(vcv, cv);
+  const vidrioMod = import(new URL(VIDRIO_DIR + "pov-vidrio.js", document.baseURI).href).catch(() => null);
+  let vidrio = null, vidrioAsked = false;
+  const askVidrio = () => {
+    if(vidrioAsked) return; vidrioAsked = true;
+    vidrioMod.then(m => {
+      vidrio = m && m.createVidrio(vcv, {interactive:true});
+      if(!raf) raf = requestAnimationFrame(loop);
+    });
   };
-
-  /* ---------- vidrio acanalado (Cell) dentro del punto — Doris, 2026-11-23 ----------
-     Recurso POV_Web_Vidrio_Acanalado: shader WebGL que calcula en vivo el acanalado, la
-     refracción, las manchas de luz y el grano, en Ink / Cell / Cream. Los valores son los
-     de la guía (reed .0714, refracción 1.6, softness .016, grano .022, deriva .035 en 38 s,
-     slide .006, rack focus 1,8 s desde 6×). Movimiento lento y callado: las manchas derivan,
-     el vidrio se desliza en horizontal y entra desenfocado → nítido. En el logo el marco de
-     las manchas es la O; al abrirse el punto pasa a ser la pantalla, así que a pantalla
-     completa queda igual que el póster del recurso. Sin WebGL: la textura anterior. */
-  const VID = {reed:.0714, refraction:1.6, blob:[.58, .42], blobSize:[.30, .46],
-    blob2:[.25, .78], blob2Size:[.18, .178], softness:.016, grain:.022, grainFps:12,
-    drift:.035, driftPeriod:38, slide:.006, focusIntro:1.8, focusFrom:6, maxDpr:1.5};
-  const glass = (() => {
-    const c = document.createElement("canvas");
-    let gl = null;
-    try { gl = c.getContext("webgl", {premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false}); } catch(_){}
-    if(!gl) return null;
-    const FS = `precision highp float;
-uniform vec2 uRes; uniform float uScale;
-uniform vec4 uFrame; uniform float uReed, uRefr, uSoft, uSlide, uGrain, uGT, uVol, uAmb, uLit, uR;
-uniform vec2 uC, uB1, uS1, uB2, uS2;
-const vec3 INK = vec3(.098,.098,.094), CELL = vec3(.557,.690,.780), CREAM = vec3(.878,.871,.835);
-float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float spot(vec2 q, vec2 b, vec2 s, float soft){
-  float r = length((q - b) / s);
-  return smoothstep(1. + soft, 1. - soft, r) * (1. - .45 * r * r);
-}
-float field(vec2 p, float blur){
-  vec2 q = (p - (uFrame.xy - uFrame.zw * .5)) / uFrame.zw;
-  float sf = uSoft + blur;
-  return max(spot(q, uB1, uS1, sf / (.5 * (uS1.x + uS1.y))), .85 * spot(q, uB2, uS2, sf / (.5 * (uS2.x + uS2.y))));
-}
-void main(){
-  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uScale;
-  float u = (p.x + uSlide) / uReed, f = fract(u) - .5;
-  /* cada acanalado es una lente: muestra una imagen pequeña e invertida de lo que hay detrás */
-  float sx = p.x - f * uReed * uRefr;
-  float blur = .02 + .10 * f * f;
-  float t = 0.;
-  for(int i = -2; i <= 2; i++){ t += field(vec2(sx + float(i) * uReed * (.05 + .3 * f * f), p.y), blur); }
-  t = t / 5. * uLit + uAmb;
-  vec3 col = mix(INK, CELL, smoothstep(0., .55, t));
-  col = mix(col, CREAM, smoothstep(.55, 1., t));
-  /* brillo y sombra de la caña */
-  float hl = exp(-pow((f + .22) / .1, 2.)), sh = smoothstep(.36, .5, abs(f));
-  col += CREAM * .035 * hl; col *= 1. - .10 * sh;
-  /* volumen del punto cuando todavía es la O */
-  float d = length(p - uC) / max(uR, 1.);
-  col = mix(col, INK, uVol * .32 * smoothstep(.72, 1., d));
-  col += (hash(floor(gl_FragCoord.xy) + uGT) - .5) * 2. * uGrain;
-  gl_FragColor = vec4(col, 1.);
-}`;
-    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; };
-    let pr;
-    try {
-      pr = gl.createProgram();
-      gl.attachShader(pr, sh(gl.VERTEX_SHADER, "attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}"));
-      gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS));
-      gl.linkProgram(pr);
-      if(!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw gl.getProgramInfoLog(pr);
-    } catch(e){ console.warn("vidrio:", e); return null; }
-    gl.useProgram(pr);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(pr, "a");
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const U = {}; ["uRes","uScale","uFrame","uReed","uRefr","uSoft","uSlide","uGrain","uGT","uVol","uAmb","uLit","uR",
-      "uC","uB1","uS1","uB2","uS2"].forEach(n => U[n] = gl.getUniformLocation(pr, n));
-    let focusAt = null;
-    return {
-      c,
-      /* C, r: el punto ahora · r0: su radio en el logo · R: radio que cubre la pantalla */
-      draw(C, r, r0, R, time){
-        const sc = Math.min(devicePixelRatio || 1, VID.maxDpr);
-        const w = Math.max(2, Math.round(W * sc)), h = Math.max(2, Math.round(H * sc));
-        if(c.width !== w || c.height !== h){ c.width = w; c.height = h; }
-        gl.viewport(0, 0, w, h);
-        /* k: cuánto se ha abierto el punto (0 = la O del logo, 1 = pantalla completa) */
-        const k = cl((r - r0) / Math.max(1, R / 1.08 - r0)), m = Math.min(W, H);
-        const lp = (a, b) => a + (b - a) * k;
-        if(focusAt === null) focusAt = time;
-        const fp = reduce ? 1 : eo(cl((time - focusAt) / VID.focusIntro));
-        const ph = time / VID.driftPeriod * Math.PI * 2, dA = VID.drift;
-        const bump = lp(1.0, 1);
-        gl.uniform2f(U.uRes, w, h); gl.uniform1f(U.uScale, sc);
-        /* en vertical el marco se ensancha: si no, la luz queda en una franja y la frase cae en lo oscuro */
-        gl.uniform4f(U.uFrame, lp(C.x, W / 2), lp(C.y, H / 2), lp(r0 * 2, Math.max(W, H * .8)), lp(r0 * 2, H));
-        gl.uniform1f(U.uReed, VID.reed * m * lp(.5, 1));
-        gl.uniform1f(U.uRefr, VID.refraction);
-        gl.uniform1f(U.uSoft, VID.softness * (VID.focusFrom + (1 - VID.focusFrom) * fp));
-        gl.uniform1f(U.uSlide, reduce ? 0 : time * VID.slide * m);
-        gl.uniform1f(U.uGrain, VID.grain);
-        gl.uniform1f(U.uGT, reduce ? 0 : Math.floor(time * VID.grainFps) % 97);
-        gl.uniform1f(U.uVol, 1 - k); gl.uniform1f(U.uAmb, .22 * (1 - k)); gl.uniform1f(U.uLit, lp(.62, 1));
-        gl.uniform2f(U.uC, C.x, C.y); gl.uniform1f(U.uR, r);
-        gl.uniform2f(U.uB1, VID.blob[0] + dA * Math.sin(ph), VID.blob[1] + dA * Math.cos(ph * .8 + 1));
-        gl.uniform2f(U.uS1, VID.blobSize[0] * bump, VID.blobSize[1] * bump);
-        gl.uniform2f(U.uB2, VID.blob2[0] + dA * Math.sin(ph * 1.3 + 2.4), VID.blob2[1] + dA * Math.cos(ph * 1.1 + .7));
-        gl.uniform2f(U.uS2, VID.blob2Size[0] * bump, VID.blob2Size[1] * bump);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-      }
-    };
-  })();
+  const posters = {};
+  const poster = () => {
+    const k = W < H ? "1440x2560" : "2560x1440";
+    if(!posters[k]){
+      const im = new Image();
+      im.onload = () => { if(!raf) raf = requestAnimationFrame(loop); };
+      im.src = VIDRIO_DIR + "vidrio-cell-" + k + ".webp"; posters[k] = im;
+    }
+    return posters[k].naturalWidth ? posters[k] : null;
+  };
+  const paintGlass = () => {
+    if(vidrio){
+      if(reduce) vidrio.renderFrame(0);   /* sin bucle propio: que no quede un cuadro de otro tamaño */
+      ctx.drawImage(vcv, 0, 0, W, H); return;
+    }
+    const im = poster(); if(!im) return;
+    const s = Math.max(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s;
+    ctx.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+  };
 
   const blob = (C, r, wob, time) => {
     ctx.beginPath();
@@ -4440,13 +4349,12 @@ void main(){
       /* con el scroll el radio crece en progresión geométrica: zoom constante, "se acerca" */
       const r = ov && ov.geo ? r0 * Math.pow(R / r0, g) : r0 * (.15 + .85 * txp) + (R - r0) * g;
       const wob = .05 * Math.sin(Math.PI * txp) * (1 - g) + .026 * Math.sin(Math.PI * g);
-      if(glass) glass.draw(C, Math.max(r, r0), r0, R, time);
-      else paintTex(C, Math.max(r, r0), time, g);
+      askVidrio();
       ctx.save();
       if(dr < .5){ const top = X({x:0, y:0}).y; ctx.beginPath(); ctx.rect(0, top, W, H); ctx.clip(); }
       if(t < END){ blob(C, r, wob, time); ctx.clip(); }
       ctx.globalAlpha = eo(sp(tc, [T.tex[0], T.tex[1] * .5]));
-      ctx.imageSmoothingEnabled = true; ctx.drawImage(glass ? glass.c : tex, 0, 0, W, H);
+      ctx.imageSmoothingEnabled = true; paintGlass();
       if(vidOK && tc >= T.vid[0]){
         if(vid.paused) vid.play().catch(() => {});
         const vw = vid.videoWidth || 16, vh = vid.videoHeight || 9, s = Math.max(W / vw, H / vh);
