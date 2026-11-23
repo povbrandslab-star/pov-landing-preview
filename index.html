@@ -317,6 +317,12 @@ const C = {
   ],
   /* Los cortes de línea son de Doris, no del navegador: cada renglón es una
      promesa. Por eso van como líneas sueltas y no como un párrafo. */
+  /* Síntesis: tres renglones anchos; "|" = donde entra la 2.ª parte con el scroll */
+  manifiestoTres: [
+    'Pocos proyectos al mismo tiempo, atención',
+    'completa en cada uno, | una sola persona',
+    'respondiéndote de principio a fin.'
+  ],
   manifiestoLineas: [
     'Pocos proyectos al mismo tiempo,',
     'atención completa en cada uno,',
@@ -547,18 +553,22 @@ function manifiestoHTML(v){
     <div class="manifiesto rv" data-d="1">${C.manifiesto.map(p=>`<p>${p}</p>`).join('')}</div>
   </div></section>`;
   /* Síntesis (Doris, 2026-11-23): pantalla negra completa con la frase en el centro.
-     Mide tres pantallas y el contenido va fijo (sticky): cada pantalla es un paso de
-     scroll. Paso 1 = renglones 1-2 · paso 2 = renglones 3-4 · el 3.º sale a la sección
-     siguiente. El runtime va en su propio <script> al final del archivo. */
-  if(v===6) return `
+     Mide dos pantallas y el contenido va fijo (sticky). Al llegar ya entra la 1.ª
+     parte (Doris: "que no parezca un fallo, una pantalla negra vacía"); un scroll
+     completa la frase y el siguiente sale a la sección. Tres renglones anchos
+     (`manifiestoTres`); el "|" marca dónde empieza la 2.ª parte. Runtime al final. */
+  if(v===6){
+    let h = 1;
+    const lines = C.manifiestoTres.map(l=>`<span class="man__ln">${
+      l.split('|').map((part,j)=>{ if(j) h++; return `<span class="man__g" data-h="${h}">${part.trim()}</span>`; }).join(' ')
+    }</span>`).join('');
+    return `
   <section class="man" id="manifiesto">
     <div class="man__pin">
-      <p class="man__t"><span class="man__sr">${C.manifiestoLineas.join(' ')}</span><span class="man__vis" aria-hidden="true">${
-        [C.manifiestoLineas.slice(0,2), C.manifiestoLineas.slice(2)].map((h,i)=>
-          `<span class="man__h" data-h="${i+1}">${h.map(l=>`<span class="man__ln">${l}</span>`).join('')}</span>`).join('')
-      }</span></p>
+      <p class="man__t"><span class="man__sr">${C.manifiestoTres.join(' ').replace(/\s*\|\s*/g,' ')}</span><span class="man__vis" aria-hidden="true">${lines}</span></p>
     </div>
   </section>`;
+  }
   /* Sin `rv`: el reveal normal pone el bloque en opacity 0 y aquí el texto tiene
      que estar visible en gris desde el principio para que se pueda ir encendiendo. */
   return `
@@ -1399,6 +1409,11 @@ const EN = {
     'We are a small studio by choice. A few projects at a time, full attention on each one, and the same person answering you from start to finish.',
     'We do not hand over a logo on its own: we hand over a brand that knows what to say, how to look and where to stand. Strategy first, aesthetics always.'
   ],
+  manifiestoTres: [
+    'A few projects at a time, full',
+    'attention on each one, | the same person',
+    'answering you from start to finish.'
+  ],
   manifiestoLineas: [
     'A few projects at a time,',
     'full attention on each one,',
@@ -1575,13 +1590,14 @@ function initManifiesto(root){
      para que al deshacer se vaya de la última letra a la primera. */
   const man = root.querySelector('.man');
   if(man){
-    man.querySelectorAll('.man__h').forEach(h=>{
+    ['1','2'].forEach(k=>{
+      const gs = [...man.querySelectorAll(`.man__g[data-h="${k}"]`)];
       let i = 0;
-      h.querySelectorAll('.man__ln').forEach(ln=>{
-        ln.innerHTML = ln.textContent.trim().split(/\s+/).map(w=>
+      gs.forEach(g=>{
+        g.innerHTML = g.textContent.trim().split(/\s+/).map(w=>
           `<span class="man__w">${[...w].map(c=>`<span class="man__c" style="--i:${i++}">${c}</span>`).join('')}</span>`).join(' ');
       });
-      h.querySelectorAll('.man__c').forEach(c=>c.style.setProperty('--r', i - 1 - parseInt(c.style.getPropertyValue('--i'))));
+      gs.forEach(g=>g.querySelectorAll('.man__c').forEach(c=>c.style.setProperty('--r', i - 1 - parseInt(c.style.getPropertyValue('--i')))));
     });
     if(window.manSync) window.manSync();
   }
@@ -4584,32 +4600,34 @@ void main(){
    Antes: frase enorme que llenaba la pantalla ("muy cargado"). Ahora: pantalla negra
    completa, la frase más pequeña en el centro y la misma entrada que la frase del
    intro (letra a letra, sube por una máscara, 1 s expo.out, 17,5 ms entre letras).
-   La sección mide 3 pantallas y el contenido va sticky: el JS salta de una a otra
-   con cada gesto, así el estado sale de la posición de scroll y va y vuelve solo. */
-.man{position:relative; height:300vh; height:300svh; background:#191918}
+   2.ª pasada: "demasiado scroll" y "una pantalla negra vacía parece un fallo" → la
+   1.ª parte entra ya al llegar; un gesto completa la frase y el siguiente sale.
+   Tres renglones anchos e interlineado apretado. La sección mide 2 pantallas con el
+   contenido sticky: el estado sale de la posición de scroll, así va y vuelve solo. */
+.man{position:relative; height:200vh; height:200svh; background:#191918}
 .man__pin{position:sticky; top:0; height:100vh; height:100svh; overflow:hidden;
   display:grid; place-items:center; padding:0 16px}
 .man__t{margin:0; text-align:center; color:#E0DED5;
   font-family:"PP Editorial New",Georgia,serif; font-weight:400; font-style:normal;
-  font-size:clamp(21px,calc(1.8vw + 12px),42px); line-height:1.22; letter-spacing:-.02em}
-.man__vis,.man__h,.man__ln{display:block}
+  font-size:clamp(21px,calc(1.8vw + 12px),42px); line-height:1.06; letter-spacing:-.02em}
+.man__vis,.man__ln{display:block}
 .man__w{display:inline-block; overflow:hidden; vertical-align:top;
   padding:.06em .12em .22em; margin:-.06em -.12em -.22em}
 /* escondida: la letra baja por la máscara, de la última a la primera */
 .man__c{display:inline-block; transform:translateY(135%);
   transition:transform .6s cubic-bezier(.55,0,.75,.2); transition-delay:calc(var(--r,0) * 7ms)}
-.man.is-s1 .man__h[data-h="1"] .man__c,
-.man.is-s2 .man__h[data-h="2"] .man__c{transform:none;
+.man.is-s1 .man__g[data-h="1"] .man__c,
+.man.is-s2 .man__g[data-h="2"] .man__c{transform:none;
   transition:transform 1s cubic-bezier(.16,1,.3,1); transition-delay:calc(var(--i,0) * 17.5ms)}
 .man__sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 /* con la frase en pantalla no hay nada más: la nav se aparta */
 .page .nav{transition:opacity .45s ease}
 .page.is-man .nav{opacity:0; pointer-events:none}
-/* pantallas muy estrechas: los renglones se sueltan dentro de cada mitad */
-@media (max-width:379px){
+/* móvil: los tres renglones anchos no caben; la frase se reparte sola */
+@media (max-width:539px){
+  .man__vis{text-wrap:balance}
   .man__ln{display:inline}
   .man__ln + .man__ln::before{content:" "}
-  .man__h{text-wrap:balance}
 }
 @media (prefers-reduced-motion:reduce){
   .man{height:100vh; height:100svh}
@@ -4621,8 +4639,8 @@ void main(){
 /* MANIFIESTO · PANTALLA NEGRA. Va DESPUÉS del runtime del intro a propósito: los dos
    escuchan la rueda en window y este tiene que saber si el intro ya se quedó el gesto
    (e.defaultPrevented). Un paso por gesto, como el intro:
-   · bajando, el primer gesto que deja libre el intro trae la sección a pantalla (deslizando)
-   · dentro: gesto → renglones 1-2 · gesto → 3-4 · gesto → sale a la sección siguiente
+   · bajando, el gesto que suelta el intro trae la sección deslizando y la 1.ª parte entra
+   · gesto → la frase completa · gesto → sale a la sección siguiente
    · subiendo, lo mismo al revés, y el último gesto devuelve al intro. */
 (() => {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -4630,22 +4648,23 @@ void main(){
   const H = () => innerHeight;
   const navH = () => { const n = document.querySelector(".page .nav"); return n ? n.offsetHeight : 0; };
   const topOf = el => el.getBoundingClientRect().top;
-  const inPin = t => t <= 2 && t >= -2 * H() - 2;
+  const inPin = t => t <= 2 && t >= -H() - 2;
 
   const sync = () => {
     const el = get(); if(!el) return;
     if(reduce){ el.classList.add("is-s1", "is-s2"); return; }
-    const t = topOf(el), p = -t / H();
-    el.classList.toggle("is-s1", p > .5);
-    el.classList.toggle("is-s2", p > 1.5);
+    const t = topOf(el), h = H();
+    el.classList.toggle("is-s1", t < h * .3);     /* entra mientras la sección termina de llegar */
+    el.classList.toggle("is-s2", -t / h > .5);
     const page = el.closest(".page");
-    if(page) page.classList.toggle("is-man", t <= navH() && t >= -2 * H() - 2);
+    if(page) page.classList.toggle("is-man", t <= navH() && t >= -h - 2);
   };
   window.manSync = sync;
   addEventListener("scroll", sync, {passive:true});
 
   const to = y => scrollTo({top:y, behavior:"instant"});
   const esn = p => -(Math.cos(Math.PI * p) - 1) / 2;
+  const DOCK = 1100, LEAVE = 1000, GAP = 900;   /* GAP: lo que tarda la frase en entrar */
   let anim = null, lastStep = 0;
   /* deslizar de verdad solo al entrar y al salir; dentro no se mueve nada en pantalla */
   const glide = (y, dur) => {
@@ -4659,7 +4678,6 @@ void main(){
     };
     requestAnimationFrame(tick);
   };
-  const DOCK = 1100, LEAVE = 1000, GAP = 900;   /* GAP: lo que tarda la frase en entrar */
 
   /* true = el gesto es nuestro y la página no debe moverse */
   const act = (dir, fresh) => {
@@ -4669,17 +4687,17 @@ void main(){
     const ok = fresh && now - lastStep > GAP;
     /* entrando desde arriba (incluye el gesto con que el intro suelta la página) */
     if(dir > 0 && t > 2 && t < h + navH() + 4){ glide(scrollY + t, DOCK); return true; }
-    /* entrando desde abajo: aparece el final de la sección, se queda en el paso 2 */
-    if(dir < 0 && t < -2 * h - 2 && t > -3 * h - 4){ glide(scrollY + t + 2 * h, DOCK); return true; }
+    /* entrando desde abajo: asoma el final de la sección, se queda con la frase completa */
+    if(dir < 0 && t < -h - 2 && t > -2 * h - 4){ glide(scrollY + t + h, DOCK); return true; }
     if(!inPin(t)) return false;
-    const s = Math.max(0, Math.min(2, Math.round(-t / h)));
+    const s = -t / h > .5 ? 1 : 0;
     if(!ok) return true;
     lastStep = now;
     if(dir > 0){
-      if(s < 2) to(scrollY + t + (s + 1) * h);
-      else glide(scrollY + t + 3 * h - navH(), LEAVE);
+      if(s < 1) to(scrollY + t + h);
+      else glide(scrollY + t + 2 * h - navH(), LEAVE);
     } else {
-      if(s > 0) to(scrollY + t + (s - 1) * h);
+      if(s > 0) to(scrollY + t);
       else { const y = scrollY + t - h; glide(y < navH() + 40 ? 0 : y, LEAVE); }
     }
     return true;
@@ -4714,7 +4732,7 @@ void main(){
   addEventListener("resize", () => {
     const el = get(); if(!el || reduce || anim) return;
     const t = topOf(el);
-    if(inPin(t)) to(scrollY + t + Math.max(0, Math.min(2, Math.round(-t / H()))) * H());
+    if(inPin(t)) to(scrollY + t + (-t / H() > .5 ? H() : 0));
     sync();
   });
   sync();
