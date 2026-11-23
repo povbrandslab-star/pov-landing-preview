@@ -4058,6 +4058,13 @@ render(true);
      la frase. drain/grow siguen definidos pero la línea de tiempo no llega. */
   const HOLD = T.drain[0];
   const TXT_AT = HOLD;   /* el reloj se clava en HOLD: no puede ser posterior */
+  /* Doris (2026-11-23): la entrada completa solo la PRIMERA vez. Si ya se vio (recarga o
+     visita posterior), versión corta: sin macros ni andamiaje de construcción (guías,
+     compás, nodos, manejadores, zoom); solo el contorno del logo dibujándose, el relleno
+     y la O de color. Arranca en K y corre a SHORT_SPEED. La nota vive en localStorage. */
+  const SEEN_KEY = "pov-intro-seen", SHORT_SPEED = 1.35;
+  let SHORT = false;
+  try { SHORT = localStorage.getItem(SEEN_KEY) === "1"; localStorage.setItem(SEEN_KEY, "1"); } catch(_){}
 
   /* ---------- curvas ---------- */
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -4391,12 +4398,12 @@ void main(){
   /* ---------- 2-5 · construcción, relleno, la O, el círculo ---------- */
   const drawBuild = (t, time, ov) => {   /* ov = {dr, g}: lo manda el scroll tras la pausa */
     const tc = t;
-    const z = 2.4 - 1.4 * eio(sp(tc, T.zoom));
+    const z = SHORT ? 1 : 2.4 - 1.4 * eio(sp(tc, T.zoom));
     const X = cam({x:base.x, y:base.y, s:base.s * z});
     ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
     const la = 1 - eo(sp(tc, T.linesOut));
 
-    if(la > 0){
+    if(la > 0 && !SHORT){
       /* guías de construcción */
       const gx = [0, O.x, 89.4561, 93.3333, VB_W], gy = [0, O.y, 63.8955, VB_H];
       const L = Math.max(W, H);
@@ -4457,8 +4464,8 @@ void main(){
       ctx.lineWidth = 1.2; ctx.strokeStyle = cream(.85 * la);
       const tip = build(pc, 0, L, X); if(tip){ if(p >= 1) ctx.closePath(); ctx.stroke(); }
       const when = Lx => tr[0] + ieio(cl(Lx / pc.len)) * tr[1];
-      pc.handles.forEach(h => { if(h.at <= L) handle(X(h.n), X(h.h), ceil, .9 * la); });
-      pc.nodes.forEach(n => { if(n.at <= L) node(X(n.p), INK, .9 * la, .6 + .4 * eo(cl((tc - when(n.at)) / .25))); });
+      if(!SHORT) pc.handles.forEach(h => { if(h.at <= L) handle(X(h.n), X(h.h), ceil, .9 * la); });
+      if(!SHORT) pc.nodes.forEach(n => { if(n.at <= L) node(X(n.p), INK, .9 * la, .6 + .4 * eo(cl((tc - when(n.at)) / .25))); });
       tipDot(tip, TIP, 3.5, la * (1 - sp(tc, [tr[0] + tr[1], .3])));
     });
   };
@@ -4579,7 +4586,8 @@ void main(){
   const loop = now => {
     raf = 0;
     if(start === null) start = now;
-    const t = reduce ? HOLD : Math.min((now - start) / 1000, HOLD);
+    const el = (now - start) / 1000;
+    const t = reduce ? HOLD : Math.min(SHORT ? K + el * SHORT_SPEED : el, HOLD);
     frame(t, now);
     if(visible && !reduce) raf = requestAnimationFrame(loop);
   };
