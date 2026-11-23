@@ -4061,10 +4061,11 @@ render(true);
   /* Doris (2026-11-23): la entrada completa solo la PRIMERA vez. Si ya se vio (recarga o
      visita posterior), versión corta: sin macros ni andamiaje de construcción (guías,
      compás, nodos, manejadores, zoom); solo el contorno del logo dibujándose, el relleno
-     y la O de color. Arranca en K y corre a SHORT_SPEED. La nota vive en localStorage. */
+     y la O de color. Arranca en K y corre a SHORT_SPEED. La nota vive en sessionStorage:
+     recargar en la misma pestaña = corta; abrir el sitio en otra pestaña/ventana = completa. */
   const SEEN_KEY = "pov-intro-seen", SHORT_SPEED = 1.35;
   let SHORT = false;
-  try { SHORT = localStorage.getItem(SEEN_KEY) === "1"; localStorage.setItem(SEEN_KEY, "1"); } catch(_){}
+  try { SHORT = sessionStorage.getItem(SEEN_KEY) === "1"; sessionStorage.setItem(SEEN_KEY, "1"); } catch(_){}
 
   /* ---------- curvas ---------- */
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
