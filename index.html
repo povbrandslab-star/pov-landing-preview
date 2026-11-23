@@ -3860,9 +3860,11 @@ render(true);
    apaga cuando cubre la pantalla, para dejar solo el vídeo. Opacidad desde el JS. */
 .ipt__sub{position:absolute; inset:0; margin:0; z-index:1; pointer-events:none;
   display:grid; place-items:center; padding:0 24px; opacity:0}
-.ipt__sub span{max-width:17ch; text-align:center; color:#191918;
-  font-family:"PP Editorial New",Georgia,serif; font-weight:400;
-  font-size:clamp(28px,3.6vw,60px); line-height:1.06; letter-spacing:-.015em; text-wrap:balance}
+/* Doris: "ligera y sutil" → Neue Machina 20 px, dos renglones fijos, centrada */
+.ipt__sub span{text-align:center; color:#191918; white-space:nowrap;
+  font-family:"PP Neue Machina",system-ui,sans-serif; font-weight:400;
+  font-size:20px; line-height:1.4; letter-spacing:0}
+@media (max-width:480px){ .ipt__sub span{font-size:16px} }
 </style>
 
 <script>
@@ -4036,9 +4038,9 @@ render(true);
   const txt = box.querySelector(".ipt__txt");
   const PHRASE = {
     es:{l:["Diseño", "_estratégico_"], r:["que _impulsa_", "tu marca"], all:"Diseño estratégico que impulsa tu marca",
-        sub:"Estudio boutique para founders que valoran la excelencia."},
+        sub:"Estudio boutique para founders|que valoran la excelencia."},
     en:{l:["Strategic", "_design_"],   r:["that _drives_", "your brand"], all:"Strategic design that drives your brand",
-        sub:"A boutique studio for founders who value excellence."}
+        sub:"A boutique studio for founders|who value excellence."}
   };
   const subEl = box.querySelector(".ipt__sub"), subTx = subEl.querySelector("span");
   let txtLang = null, logoW = 0, logoH = 0;
@@ -4046,7 +4048,7 @@ render(true);
     const L = document.documentElement.lang === "en" ? "en" : "es";   /* `lang` no es global */
     if(L === txtLang) return; txtLang = L;
     const ph = PHRASE[L]; let i = 0;
-    subTx.textContent = ph.sub;
+    subTx.innerHTML = ph.sub.split("|").join("<br>");   /* "|" = salto de renglón */
     const line = s => '<span class="ipt__ln"><span class="ipt__in">' + s.split(" ").map(w => {
       const it = /^_.*_$/.test(w), word = it ? w.slice(1, -1) : w;
       const cs = [...word].map(ch => `<span class="ipt__c" style="--i:${i++}">${ch}</span>`).join("");
@@ -4077,6 +4079,7 @@ render(true);
     }
     txt.classList.toggle("is-stack", stack);
     txt.style.fontSize = Math.max(18, fs) + "px";
+    subW = subTx.offsetWidth; subH = subTx.offsetHeight;   /* una vez por resize, no por fotograma */
   };
   buildTxt();
   if(document.fonts) document.fonts.ready.then(() => { if(logoW) fitTxt(logoW, logoH); });
@@ -4272,6 +4275,7 @@ render(true);
     const C = X(O), r0 = O.r * base.s * z;
     if(txp > 0){
       const R = Math.hypot(Math.max(C.x, W - C.x), Math.max(C.y, H - C.y)) * 1.08;
+      geoR0 = r0; geoR = R;   /* para saber cuándo cabe la frase dentro del punto */
       /* con el scroll el radio crece en progresión geométrica: zoom constante, "se acerca" */
       const r = ov && ov.geo ? r0 * Math.pow(R / r0, g) : r0 * (.15 + .85 * txp) + (R - r0) * g;
       const wob = .05 * Math.sin(Math.PI * txp) * (1 - g) + .026 * Math.sin(Math.PI * g);
@@ -4318,6 +4322,15 @@ render(true);
      crece en progresión GEOMÉTRICA (mismo factor de zoom por instante, se lee como una
      cámara que avanza, no como un círculo que se infla) y cada paso dura 1,7 s en seno. */
   const S_MAX = 3, STEP_DUR = 1.7, BACK_DUR = 1.5;
+  /* frase del estudio: entra en cuanto el punto la contiene con aire (al final del
+     paso 1 en escritorio) y, con la pantalla ya cubierta, aguanta SUB_HOLD s y se va */
+  const SUB_HOLD = 2.5, SUB_FADE = .8;
+  let geoR0 = 1, geoR = 2, subA = 0, subLast = 0, subW = 0, subH = 0;
+  const subStart = () => {
+    const need = Math.max(subW, subH * 2) * .62;   /* radio con aire; medidas de fitTxt */
+    const g = Math.log(Math.max(need, geoR0) / geoR0) / Math.log(geoR / geoR0);
+    return Math.max(.55, .3 + g * (S_MAX - .3) - .15);
+  };
   const esn = p => -(Math.cos(Math.PI * p) - 1) / 2;
   let sFrom = 0, sTo = 0, sAt = 0, sDur = 1, tNow = 0;
   const stepK = now => cl((now - sAt) / 1000 / sDur);
@@ -4335,6 +4348,8 @@ render(true);
     sDur = (n < cur ? BACK_DUR : STEP_DUR) * Math.max(.6, Math.min(1.4, Math.abs(n - cur)));
     holdLock = n === S_MAX;
     if(!raf) raf = requestAnimationFrame(loop);
+    /* sin movimiento no hay bucle: un fotograma más para que la frase se apague */
+    if(reduce && n === S_MAX) setTimeout(() => { if(!raf) raf = requestAnimationFrame(loop); }, (sDur + SUB_HOLD + .1) * 1000);
     return true;
   };
   const atTop = () => scrollY <= 2 && tNow >= HOLD;
@@ -4394,11 +4409,16 @@ render(true);
     /* de vuelta, la frase espera a que el punto casi haya vuelto a su sitio */
     const sN = stepNow(now);
     box.classList.toggle("is-out", sTo > 0 || sN > .3);
-    /* frase del estudio: entra mientras el punto se acerca en el paso 2 y se apaga
-       en el 3, cuando ya cubre la pantalla */
-    const subIn = esn(cl((sN - 1.4) / .55)), subOut = esn(cl((sN - 2.1) / .5));
-    subEl.style.opacity = (t >= HOLD ? subIn * (1 - subOut) : 0).toFixed(3);
-    subEl.style.transform = `translateY(${((1 - subIn) * 14 - subOut * 10).toFixed(1)}px)`;
+    /* frase del estudio: objetivo según el paso, y la opacidad lo persigue suave
+       (así también vuelve con suavidad al deshacer el scroll) */
+    const s0 = subStart(), subIn = esn(cl((sN - s0) / .35));
+    const sinceFull = sTo === S_MAX ? (now - sAt) / 1000 - sDur : -1;
+    const subOut = sinceFull < 0 ? 0 : esn(cl((sinceFull - SUB_HOLD) / SUB_FADE));
+    const goal = t >= HOLD ? subIn * (1 - subOut) : 0;
+    const dt = subLast ? Math.min(.1, (now - subLast) / 1000) : 0; subLast = now;
+    subA = reduce ? goal : subA + (goal - subA) * (1 - Math.exp(-dt * 9));
+    subEl.style.opacity = subA.toFixed(3);
+    subEl.style.transform = `translateY(${((1 - subA) * 8).toFixed(1)}px)`;
   };
 
   /* Sin movimiento: directo al final. Si no, una pasada; luego la textura sigue
