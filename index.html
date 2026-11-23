@@ -4256,7 +4256,8 @@ render(true);
     const C = X(O), r0 = O.r * base.s * z;
     if(txp > 0){
       const R = Math.hypot(Math.max(C.x, W - C.x), Math.max(C.y, H - C.y)) * 1.08;
-      const r = r0 * (.15 + .85 * txp) + (R - r0) * g;
+      /* con el scroll el radio crece en progresión geométrica: zoom constante, "se acerca" */
+      const r = ov && ov.geo ? r0 * Math.pow(R / r0, g) : r0 * (.15 + .85 * txp) + (R - r0) * g;
       const wob = .05 * Math.sin(Math.PI * txp) * (1 - g) + .026 * Math.sin(Math.PI * g);
       paintTex(C, Math.max(r, r0), time, g);
       ctx.save();
@@ -4292,61 +4293,67 @@ render(true);
   };
 
   /* ---------- tras la pausa: el punto se despliega con el scroll (Doris, 2026-11-23) ----------
-     Referencia itsoffbrand. Dos pasos de scroll hacia abajo: 1 · la frase sale, la P y la V
-     se vacían y el punto empieza a abrirse · 2 · el punto cubre la pantalla. Desde ahí el
-     scroll ya mueve la página. Scroll hacia arriba arriba del todo = vuelta al estado quieto.
-     s va de 0 a 2 y se interpola en el tiempo hacia el paso pedido (sTo). */
-  const STEP_DUR = 1.15, BACK_DUR = 1.4;
+     Referencia itsoffbrand. TRES pasos de scroll, de ida y de vuelta, uno por gesto:
+     1 · la frase sale, la P y la V se vacían y el punto empieza a abrirse · 2 · sigue
+     acercándose · 3 · cubre la pantalla y SE QUEDA (ahí irá el vídeo). Solo un scroll nuevo,
+     con el paso ya terminado, deja seguir a la página. Hacia arriba, arriba del todo, se
+     deshace paso a paso. s va de 0 a 3 y se interpola en el tiempo hacia el paso pedido.
+     Doris: "muy brusco; que se vea cómo se expande y se acerca a la pantalla" → el radio
+     crece en progresión GEOMÉTRICA (mismo factor de zoom por instante, se lee como una
+     cámara que avanza, no como un círculo que se infla) y cada paso dura 1,7 s en seno. */
+  const S_MAX = 3, STEP_DUR = 1.7, BACK_DUR = 1.5;
+  const esn = p => -(Math.cos(Math.PI * p) - 1) / 2;
   let sFrom = 0, sTo = 0, sAt = 0, sDur = 1, tNow = 0;
-  const stepNow = now => sFrom + (sTo - sFrom) * eio(cl((now - sAt) / 1000 / sDur));
+  const stepK = now => cl((now - sAt) / 1000 / sDur);
+  const stepNow = now => sFrom + (sTo - sFrom) * esn(stepK(now));
   const stageOv = s => ({
-    dr: cl(s / .7),                                          /* se vacían en el primer paso */
-    g: s <= 1 ? .26 * eo(cl((s - .4) / .6)) : .26 + .74 * (s - 1)   /* abre un poco · cubre todo */
+    dr: cl(s / .8),                 /* se vacían durante el primer paso */
+    g: cl((s - .3) / (S_MAX - .3)), /* fracción del zoom; drawBuild la vuelve geométrica */
+    geo: true
   });
   const goStep = n => {
+    n = Math.max(0, Math.min(S_MAX, n));
     if(n === sTo) return false;
     const now = performance.now(), cur = stepNow(now);
     sFrom = reduce ? n : cur; sTo = n; sAt = now;
-    sDur = n < cur ? BACK_DUR * Math.max(.5, (cur - n) / 2) : STEP_DUR;
+    sDur = (n < cur ? BACK_DUR : STEP_DUR) * Math.max(.6, Math.min(1.4, Math.abs(n - cur)));
+    holdLock = n === S_MAX;
     if(!raf) raf = requestAnimationFrame(loop);
     return true;
   };
   const atTop = () => scrollY <= 2 && tNow >= HOLD;
+  const busy = () => stepK(performance.now()) < 1;
   /* un gesto de trackpad dispara decenas de eventos: un paso por gesto */
-  let lastWheel = 0, lastStep = 0, topAt = 0;
+  let lastWheel = 0, lastStep = 0, topAt = 0, holdLock = false;
   addEventListener("scroll", () => { if(scrollY <= 2) topAt = performance.now(); }, {passive:true});
-  const tryStep = dir => {
-    const now = performance.now();
-    if(dir > 0 && sTo < 2){
-      if(now - lastStep > 650) { goStep(sTo + 1); lastStep = now; }
-      return true;
+  /* devuelve true si el gesto lo consume la animación (no debe mover la página) */
+  const tryStep = (dir, fresh = true) => {
+    const now = performance.now(), ok = fresh && now - lastStep > 450;
+    if(dir > 0 && sTo < S_MAX){ if(ok){ goStep(sTo + 1); lastStep = now; } return true; }
+    if(dir > 0 && sTo === S_MAX){
+      /* pantalla completa: se queda hasta que el paso termine y llegue un gesto nuevo */
+      if(busy()) return true;
+      if(holdLock){ if(fresh) holdLock = false; else return true; }
+      return false;
     }
-    if(dir < 0 && sTo > 0){
-      if(now - lastStep > 650 && now - topAt > 300){ goStep(0); lastStep = now; }
-      return true;
-    }
+    if(dir < 0 && sTo > 0){ if(ok && now - topAt > 300){ goStep(sTo - 1); lastStep = now; } return true; }
     return false;
   };
   addEventListener("wheel", e => {
     if(!atTop() || Math.abs(e.deltaY) < 1) return;
     const now = performance.now(), fresh = now - lastWheel > 180; lastWheel = now;
-    const dir = Math.sign(e.deltaY);
-    if((dir > 0 && sTo < 2) || (dir < 0 && sTo > 0)){
-      e.preventDefault();
-      /* hacia abajo, un gesto largo puede dar los dos pasos; hacia arriba hace falta un
-         gesto nuevo, si no la inercia que te trae al tope te devolvería sin querer */
-      if(fresh || (dir > 0 && now - lastStep > 1300)) tryStep(dir);
-    }
+    /* cada paso pide un gesto nuevo (hueco de 180 ms): la inercia de un gesto no salta
+       pasos, ni te devuelve sin querer al llegar al tope desde abajo */
+    if(tryStep(Math.sign(e.deltaY), fresh)) e.preventDefault();
   }, {passive:false});
   let ty = null;
   addEventListener("touchstart", e => { ty = e.touches[0].clientY; }, {passive:true});
   addEventListener("touchmove", e => {
     if(ty === null || !atTop()) return;
     const dy = ty - e.touches[0].clientY, dir = Math.sign(dy);
-    if((dir > 0 && sTo < 2) || (dir < 0 && sTo > 0)){
-      e.preventDefault();
-      if(Math.abs(dy) > 30){ tryStep(dir); ty = null; }
-    }
+    if(!dir) return;
+    /* el deslizamiento es un gesto nuevo por definición; dispara pasado el umbral */
+    if(tryStep(dir, Math.abs(dy) > 30)){ e.preventDefault(); if(Math.abs(dy) > 30) ty = null; }
   }, {passive:false});
   addEventListener("touchend", () => { ty = null; }, {passive:true});
   addEventListener("keydown", e => {
