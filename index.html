@@ -546,6 +546,19 @@ function manifiestoHTML(v){
     <span class="eyebrow rv" style="margin-bottom:22px">${C.quienesTitulo}</span>
     <div class="manifiesto rv" data-d="1">${C.manifiesto.map(p=>`<p>${p}</p>`).join('')}</div>
   </div></section>`;
+  /* Síntesis (Doris, 2026-11-23): pantalla negra completa con la frase en el centro.
+     Mide tres pantallas y el contenido va fijo (sticky): cada pantalla es un paso de
+     scroll. Paso 1 = renglones 1-2 · paso 2 = renglones 3-4 · el 3.º sale a la sección
+     siguiente. El runtime va en su propio <script> al final del archivo. */
+  if(v===6) return `
+  <section class="man" id="manifiesto">
+    <div class="man__pin">
+      <p class="man__t"><span class="man__sr">${C.manifiestoLineas.join(' ')}</span><span class="man__vis" aria-hidden="true">${
+        [C.manifiestoLineas.slice(0,2), C.manifiestoLineas.slice(2)].map((h,i)=>
+          `<span class="man__h" data-h="${i+1}">${h.map(l=>`<span class="man__ln">${l}</span>`).join('')}</span>`).join('')
+      }</span></p>
+    </div>
+  </section>`;
   /* Sin `rv`: el reveal normal pone el bloque en opacity 0 y aquí el texto tiene
      que estar visible en gris desde el principio para que se pueda ir encendiendo. */
   return `
@@ -1556,6 +1569,22 @@ function collectParallax(root){
 let manEl = null, manWords = [], manLit = 0;
 
 function initManifiesto(root){
+  /* Síntesis: letra a letra, cada palabra con su máscara (así el texto puede partir
+     renglón en móvil sin que una letra escondida asome en la fila de abajo).
+     --i cuenta dentro de cada mitad para la entrada; --r es la cuenta al revés,
+     para que al deshacer se vaya de la última letra a la primera. */
+  const man = root.querySelector('.man');
+  if(man){
+    man.querySelectorAll('.man__h').forEach(h=>{
+      let i = 0;
+      h.querySelectorAll('.man__ln').forEach(ln=>{
+        ln.innerHTML = ln.textContent.trim().split(/\s+/).map(w=>
+          `<span class="man__w">${[...w].map(c=>`<span class="man__c" style="--i:${i++}">${c}</span>`).join('')}</span>`).join(' ');
+      });
+      h.querySelectorAll('.man__c').forEach(c=>c.style.setProperty('--r', i - 1 - parseInt(c.style.getPropertyValue('--i'))));
+    });
+    if(window.manSync) window.manSync();
+  }
   manEl = root.querySelector('.manifiesto__line--scrub');
   manWords = []; manLit = 0;
   if(!manEl) return;
@@ -4219,6 +4248,111 @@ render(true);
       tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
     }
   };
+
+  /* ---------- vidrio acanalado (Cell) dentro del punto — Doris, 2026-11-23 ----------
+     Recurso POV_Web_Vidrio_Acanalado: shader WebGL que calcula en vivo el acanalado, la
+     refracción, las manchas de luz y el grano, en Ink / Cell / Cream. Los valores son los
+     de la guía (reed .0714, refracción 1.6, softness .016, grano .022, deriva .035 en 38 s,
+     slide .006, rack focus 1,8 s desde 6×). Movimiento lento y callado: las manchas derivan,
+     el vidrio se desliza en horizontal y entra desenfocado → nítido. En el logo el marco de
+     las manchas es la O; al abrirse el punto pasa a ser la pantalla, así que a pantalla
+     completa queda igual que el póster del recurso. Sin WebGL: la textura anterior. */
+  const VID = {reed:.0714, refraction:1.6, blob:[.58, .42], blobSize:[.30, .46],
+    blob2:[.25, .78], blob2Size:[.18, .178], softness:.016, grain:.022, grainFps:12,
+    drift:.035, driftPeriod:38, slide:.006, focusIntro:1.8, focusFrom:6, maxDpr:1.5};
+  const glass = (() => {
+    const c = document.createElement("canvas");
+    let gl = null;
+    try { gl = c.getContext("webgl", {premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false}); } catch(_){}
+    if(!gl) return null;
+    const FS = `precision highp float;
+uniform vec2 uRes; uniform float uScale;
+uniform vec4 uFrame; uniform float uReed, uRefr, uSoft, uSlide, uGrain, uGT, uVol, uAmb, uLit, uR;
+uniform vec2 uC, uB1, uS1, uB2, uS2;
+const vec3 INK = vec3(.098,.098,.094), CELL = vec3(.557,.690,.780), CREAM = vec3(.878,.871,.835);
+float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float spot(vec2 q, vec2 b, vec2 s, float soft){
+  float r = length((q - b) / s);
+  return smoothstep(1. + soft, 1. - soft, r) * (1. - .45 * r * r);
+}
+float field(vec2 p, float blur){
+  vec2 q = (p - (uFrame.xy - uFrame.zw * .5)) / uFrame.zw;
+  float sf = uSoft + blur;
+  return max(spot(q, uB1, uS1, sf / (.5 * (uS1.x + uS1.y))), .85 * spot(q, uB2, uS2, sf / (.5 * (uS2.x + uS2.y))));
+}
+void main(){
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uScale;
+  float u = (p.x + uSlide) / uReed, f = fract(u) - .5;
+  /* cada acanalado es una lente: muestra una imagen pequeña e invertida de lo que hay detrás */
+  float sx = p.x - f * uReed * uRefr;
+  float blur = .02 + .10 * f * f;
+  float t = 0.;
+  for(int i = -2; i <= 2; i++){ t += field(vec2(sx + float(i) * uReed * (.05 + .3 * f * f), p.y), blur); }
+  t = t / 5. * uLit + uAmb;
+  vec3 col = mix(INK, CELL, smoothstep(0., .55, t));
+  col = mix(col, CREAM, smoothstep(.55, 1., t));
+  /* brillo y sombra de la caña */
+  float hl = exp(-pow((f + .22) / .1, 2.)), sh = smoothstep(.36, .5, abs(f));
+  col += CREAM * .035 * hl; col *= 1. - .10 * sh;
+  /* volumen del punto cuando todavía es la O */
+  float d = length(p - uC) / max(uR, 1.);
+  col = mix(col, INK, uVol * .32 * smoothstep(.72, 1., d));
+  col += (hash(floor(gl_FragCoord.xy) + uGT) - .5) * 2. * uGrain;
+  gl_FragColor = vec4(col, 1.);
+}`;
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; };
+    let pr;
+    try {
+      pr = gl.createProgram();
+      gl.attachShader(pr, sh(gl.VERTEX_SHADER, "attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}"));
+      gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS));
+      gl.linkProgram(pr);
+      if(!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw gl.getProgramInfoLog(pr);
+    } catch(e){ console.warn("vidrio:", e); return null; }
+    gl.useProgram(pr);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, "a");
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const U = {}; ["uRes","uScale","uFrame","uReed","uRefr","uSoft","uSlide","uGrain","uGT","uVol","uAmb","uLit","uR",
+      "uC","uB1","uS1","uB2","uS2"].forEach(n => U[n] = gl.getUniformLocation(pr, n));
+    let focusAt = null;
+    return {
+      c,
+      /* C, r: el punto ahora · r0: su radio en el logo · R: radio que cubre la pantalla */
+      draw(C, r, r0, R, time){
+        const sc = Math.min(devicePixelRatio || 1, VID.maxDpr);
+        const w = Math.max(2, Math.round(W * sc)), h = Math.max(2, Math.round(H * sc));
+        if(c.width !== w || c.height !== h){ c.width = w; c.height = h; }
+        gl.viewport(0, 0, w, h);
+        /* k: cuánto se ha abierto el punto (0 = la O del logo, 1 = pantalla completa) */
+        const k = cl((r - r0) / Math.max(1, R / 1.08 - r0)), m = Math.min(W, H);
+        const lp = (a, b) => a + (b - a) * k;
+        if(focusAt === null) focusAt = time;
+        const fp = reduce ? 1 : eo(cl((time - focusAt) / VID.focusIntro));
+        const ph = time / VID.driftPeriod * Math.PI * 2, dA = VID.drift;
+        const bump = lp(1.0, 1);
+        gl.uniform2f(U.uRes, w, h); gl.uniform1f(U.uScale, sc);
+        /* en vertical el marco se ensancha: si no, la luz queda en una franja y la frase cae en lo oscuro */
+        gl.uniform4f(U.uFrame, lp(C.x, W / 2), lp(C.y, H / 2), lp(r0 * 2, Math.max(W, H * .8)), lp(r0 * 2, H));
+        gl.uniform1f(U.uReed, VID.reed * m * lp(.5, 1));
+        gl.uniform1f(U.uRefr, VID.refraction);
+        gl.uniform1f(U.uSoft, VID.softness * (VID.focusFrom + (1 - VID.focusFrom) * fp));
+        gl.uniform1f(U.uSlide, reduce ? 0 : time * VID.slide * m);
+        gl.uniform1f(U.uGrain, VID.grain);
+        gl.uniform1f(U.uGT, reduce ? 0 : Math.floor(time * VID.grainFps) % 97);
+        gl.uniform1f(U.uVol, 1 - k); gl.uniform1f(U.uAmb, .22 * (1 - k)); gl.uniform1f(U.uLit, lp(.62, 1));
+        gl.uniform2f(U.uC, C.x, C.y); gl.uniform1f(U.uR, r);
+        gl.uniform2f(U.uB1, VID.blob[0] + dA * Math.sin(ph), VID.blob[1] + dA * Math.cos(ph * .8 + 1));
+        gl.uniform2f(U.uS1, VID.blobSize[0] * bump, VID.blobSize[1] * bump);
+        gl.uniform2f(U.uB2, VID.blob2[0] + dA * Math.sin(ph * 1.3 + 2.4), VID.blob2[1] + dA * Math.cos(ph * 1.1 + .7));
+        gl.uniform2f(U.uS2, VID.blob2Size[0] * bump, VID.blob2Size[1] * bump);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+    };
+  })();
+
   const blob = (C, r, wob, time) => {
     ctx.beginPath();
     if(wob < .001){ ctx.arc(C.x, C.y, r, 0, Math.PI * 2); return; }
@@ -4279,12 +4413,13 @@ render(true);
       /* con el scroll el radio crece en progresión geométrica: zoom constante, "se acerca" */
       const r = ov && ov.geo ? r0 * Math.pow(R / r0, g) : r0 * (.15 + .85 * txp) + (R - r0) * g;
       const wob = .05 * Math.sin(Math.PI * txp) * (1 - g) + .026 * Math.sin(Math.PI * g);
-      paintTex(C, Math.max(r, r0), time, g);
+      if(glass) glass.draw(C, Math.max(r, r0), r0, R, time);
+      else paintTex(C, Math.max(r, r0), time, g);
       ctx.save();
       if(dr < .5){ const top = X({x:0, y:0}).y; ctx.beginPath(); ctx.rect(0, top, W, H); ctx.clip(); }
       if(t < END){ blob(C, r, wob, time); ctx.clip(); }
       ctx.globalAlpha = eo(sp(tc, [T.tex[0], T.tex[1] * .5]));
-      ctx.imageSmoothingEnabled = true; ctx.drawImage(tex, 0, 0, W, H);
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(glass ? glass.c : tex, 0, 0, W, H);
       if(vidOK && tc >= T.vid[0]){
         if(vid.paused) vid.play().catch(() => {});
         const vw = vid.videoWidth || 16, vh = vid.videoHeight || 9, s = Math.max(W / vw, H / vh);
@@ -4441,6 +4576,147 @@ render(true);
     })).observe(box);
   }
   raf = requestAnimationFrame(loop);
+})();
+</script>
+
+<style>
+/* ---- MANIFIESTO · PANTALLA NEGRA (Doris, 2026-11-23) ----
+   Antes: frase enorme que llenaba la pantalla ("muy cargado"). Ahora: pantalla negra
+   completa, la frase más pequeña en el centro y la misma entrada que la frase del
+   intro (letra a letra, sube por una máscara, 1 s expo.out, 17,5 ms entre letras).
+   La sección mide 3 pantallas y el contenido va sticky: el JS salta de una a otra
+   con cada gesto, así el estado sale de la posición de scroll y va y vuelve solo. */
+.man{position:relative; height:300vh; height:300svh; background:#191918}
+.man__pin{position:sticky; top:0; height:100vh; height:100svh; overflow:hidden;
+  display:grid; place-items:center; padding:0 16px}
+.man__t{margin:0; text-align:center; color:#E0DED5;
+  font-family:"PP Editorial New",Georgia,serif; font-weight:400; font-style:normal;
+  font-size:clamp(21px,2.9vw,42px); line-height:1.22; letter-spacing:-.02em}
+.man__vis,.man__h,.man__ln{display:block}
+.man__w{display:inline-block; overflow:hidden; vertical-align:top;
+  padding:.06em .12em .22em; margin:-.06em -.12em -.22em}
+/* escondida: la letra baja por la máscara, de la última a la primera */
+.man__c{display:inline-block; transform:translateY(135%);
+  transition:transform .6s cubic-bezier(.55,0,.75,.2); transition-delay:calc(var(--r,0) * 7ms)}
+.man.is-s1 .man__h[data-h="1"] .man__c,
+.man.is-s2 .man__h[data-h="2"] .man__c{transform:none;
+  transition:transform 1s cubic-bezier(.16,1,.3,1); transition-delay:calc(var(--i,0) * 17.5ms)}
+.man__sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+/* con la frase en pantalla no hay nada más: la nav se aparta */
+.page .nav{transition:opacity .45s ease}
+.page.is-man .nav{opacity:0; pointer-events:none}
+/* pantallas muy estrechas: los renglones se sueltan dentro de cada mitad */
+@media (max-width:379px){
+  .man__ln{display:inline}
+  .man__ln + .man__ln::before{content:" "}
+  .man__h{text-wrap:balance}
+}
+@media (prefers-reduced-motion:reduce){
+  .man{height:100vh; height:100svh}
+  .man__c{transform:none; transition:none}
+}
+</style>
+
+<script>
+/* MANIFIESTO · PANTALLA NEGRA. Va DESPUÉS del runtime del intro a propósito: los dos
+   escuchan la rueda en window y este tiene que saber si el intro ya se quedó el gesto
+   (e.defaultPrevented). Un paso por gesto, como el intro:
+   · bajando, el primer gesto que deja libre el intro trae la sección a pantalla (deslizando)
+   · dentro: gesto → renglones 1-2 · gesto → 3-4 · gesto → sale a la sección siguiente
+   · subiendo, lo mismo al revés, y el último gesto devuelve al intro. */
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const get = () => document.querySelector(".man");
+  const H = () => innerHeight;
+  const navH = () => { const n = document.querySelector(".page .nav"); return n ? n.offsetHeight : 0; };
+  const topOf = el => el.getBoundingClientRect().top;
+  const inPin = t => t <= 2 && t >= -2 * H() - 2;
+
+  const sync = () => {
+    const el = get(); if(!el) return;
+    if(reduce){ el.classList.add("is-s1", "is-s2"); return; }
+    const t = topOf(el), p = -t / H();
+    el.classList.toggle("is-s1", p > .5);
+    el.classList.toggle("is-s2", p > 1.5);
+    const page = el.closest(".page");
+    if(page) page.classList.toggle("is-man", t <= navH() && t >= -2 * H() - 2);
+  };
+  window.manSync = sync;
+  addEventListener("scroll", sync, {passive:true});
+
+  const to = y => scrollTo({top:y, behavior:"instant"});
+  const esn = p => -(Math.cos(Math.PI * p) - 1) / 2;
+  let anim = null, lastStep = 0;
+  /* deslizar de verdad solo al entrar y al salir; dentro no se mueve nada en pantalla */
+  const glide = (y, dur) => {
+    anim = {from:scrollY, y, t0:performance.now(), dur};
+    const tick = now => {
+      if(!anim) return;
+      const k = Math.min(1, (now - anim.t0) / anim.dur);
+      to(anim.from + (anim.y - anim.from) * esn(k));
+      if(k < 1) requestAnimationFrame(tick); else { anim = null; lastStep = performance.now(); }
+    };
+    requestAnimationFrame(tick);
+  };
+  const DOCK = 1100, LEAVE = 1000, GAP = 900;   /* GAP: lo que tarda la frase en entrar */
+
+  /* true = el gesto es nuestro y la página no debe moverse */
+  const act = (dir, fresh) => {
+    const el = get(); if(!el || reduce) return false;
+    if(anim) return true;
+    const t = topOf(el), h = H(), now = performance.now();
+    const ok = fresh && now - lastStep > GAP;
+    /* entrando desde arriba (incluye el gesto con que el intro suelta la página) */
+    if(dir > 0 && t > 2 && t < h + navH() + 4){ glide(scrollY + t, DOCK); return true; }
+    /* entrando desde abajo: aparece el final de la sección, se queda en el paso 2 */
+    if(dir < 0 && t < -2 * h - 2 && t > -3 * h - 4){ glide(scrollY + t + 2 * h, DOCK); return true; }
+    if(!inPin(t)) return false;
+    const s = Math.max(0, Math.min(2, Math.round(-t / h)));
+    if(!ok) return true;
+    lastStep = now;
+    if(dir > 0){
+      if(s < 2) to(scrollY + t + (s + 1) * h);
+      else glide(scrollY + t + 3 * h - navH(), LEAVE);
+    } else {
+      if(s > 0) to(scrollY + t + (s - 1) * h);
+      else { const y = scrollY + t - h; glide(y < navH() + 40 ? 0 : y, LEAVE); }
+    }
+    return true;
+  };
+
+  let lastWheel = 0;
+  addEventListener("wheel", e => {
+    if(e.defaultPrevented || Math.abs(e.deltaY) < 1) return;
+    const now = performance.now(), fresh = now - lastWheel > 180; lastWheel = now;
+    if(act(Math.sign(e.deltaY), fresh)) e.preventDefault();
+  }, {passive:false});
+
+  /* táctil: un deslizamiento = un gesto; si lo usamos, nos quedamos con todo el resto */
+  let ty = null, used = false;
+  addEventListener("touchstart", e => { ty = e.touches[0].clientY; used = false; }, {passive:true});
+  addEventListener("touchmove", e => {
+    if(ty === null || e.defaultPrevented) return;
+    if(used){ e.preventDefault(); return; }
+    const dy = ty - e.touches[0].clientY, dir = Math.sign(dy);
+    if(!dir) return;
+    if(act(dir, Math.abs(dy) > 30)){ e.preventDefault(); if(Math.abs(dy) > 30 || anim) used = true; }
+  }, {passive:false});
+  addEventListener("touchend", () => { ty = null; }, {passive:true});
+
+  addEventListener("keydown", e => {
+    if(e.defaultPrevented || e.target.closest && e.target.closest("input,textarea,select,[contenteditable]")) return;
+    const dir = ["ArrowDown", "PageDown", " "].includes(e.key) ? 1 : ["ArrowUp", "PageUp"].includes(e.key) ? -1 : 0;
+    if(dir && act(dir, !e.repeat)) e.preventDefault();
+  });
+
+  /* al cambiar el alto de la pantalla, quedarse en el paso en que estaba */
+  addEventListener("resize", () => {
+    const el = get(); if(!el || reduce || anim) return;
+    const t = topOf(el);
+    if(inPin(t)) to(scrollY + t + Math.max(0, Math.min(2, Math.round(-t / H()))) * H());
+    sync();
+  });
+  sync();
 })();
 </script>
 </body>
