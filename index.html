@@ -3927,31 +3927,45 @@ render(true);
   /* Macros: tres tomas cerradas con corte seco, como en el sistema de motion.
      f = punto que mira la cámara · span = unidades visibles en el lado corto ·
      r = tramo de la cadena que se recorre (fracción de su largo). */
+  /* Cada toma con su color (Doris, 2026-11-23): naranja · Ceil · crema. La
+     construcción va después sobre negro. Sobre fondo claro, líneas en tinta. */
+  const inkA = a => `rgba(25,25,24,${a})`;
+  const PAL = {
+    red:   {bg:"#CA4C2D", line:cream, tip:INK},
+    ceil:  {bg:"#8EB0C7", line:inkA,  tip:"#CA4C2D"},
+    cream: {bg:"#E0DED5", line:inkA,  tip:"#CA4C2D"}
+  };
   const SHOTS = [
-    { dur:2.0, f:{x:62, y:7},  span:24, push:1.12,          /* encuentro de las dos piezas */
+    { dur:1.5, f:{x:62, y:7},  span:24, push:1.22, pal:PAL.red,             /* encuentro de las dos piezas */
       chains:[ {c:chainOf([[0,5,1],[0,4,1]]), r:[0, .78]}, {c:chainOf([[1,0,0]]), r:[0, .62]} ],
       labels:[ {p:{x:60.834, y:0}, dx:-46, dy:-12}, {p:{x:63.011, y:.04}, dx:10, dy:-12}, {p:{x:61.2533, y:6.9157}, dx:-46, dy:4} ] },
-    { dur:2.0, f:{x:9, y:11},  span:34, push:1.10,          /* esquina recta */
+    { dur:1.5, f:{x:9, y:11},  span:34, push:1.20, pal:PAL.ceil,            /* esquina recta */
       chains:[ {c:chainOf([[0,6,0],[0,0,0]]), r:[.30, .74]} ],
       labels:[ {p:{x:0, y:0}, dx:10, dy:-10} ] },
-    { dur:2.4, f:{x:20, y:56}, span:34, push:1.10, hl:true, /* curva inferior izquierda, con manejadores */
+    { dur:1.8, f:{x:20, y:56}, span:34, push:1.20, pal:PAL.cream, hl:true,  /* curva inferior, con manejadores */
       chains:[ {c:chainOf([[0,0,0],[0,1,0]]), r:[.34, 1]} ],
       labels:[ {p:{x:0, y:63.8955}, dx:-44, dy:20}, {p:{x:36.6233, y:52.3502}, dx:12, dy:18} ] }
   ];
-  const MACRO = SHOTS.reduce((s, x) => s + x.dur, 0);   /* 6,4 s */
+  const MACRO = SHOTS.reduce((s, x) => s + x.dur, 0);   /* 4,8 s */
   const K = MACRO;                                      /* arranca la construcción */
   const T = {
-    guides:[K, 1.1], compass:[K + .3, 1.5],
-    traceP:[K + .6, 2.6], traceV:[K + .9, 2.6],
-    zoom:[K, 3.9],
-    fillP:[K + 3.2, 1.5], fillV:[K + 3.5, 1.5], solidLag:.5,
-    linesOut:[K + 4.9, .8],
-    tex:[K + 5.3, 1.1],
-    drain:[K + 6.8, 1.1],
-    grow:[K + 8.0, 1.6],
-    vid:[K + 8.7, .9],
+    guides:[K, .8], compass:[K + .15, 1.1],
+    traceP:[K + .3, 1.9], traceV:[K + .5, 1.9],
+    zoom:[K, 2.9],
+    fillP:[K + 2.2, 1.5], fillV:[K + 2.45, 1.5],
+    linesOut:[K + 3.7, .6],
+    tex:[K + 4.0, .9],
+    drain:[K + 5.0, .9],
+    grow:[K + 5.9, 1.4],
+    vid:[K + 6.4, .8],
     on: 1.2
   };
+  /* TEMPORAL mientras Doris elige el relleno: ?relleno=trama|contorno|nodos|velo.
+     Cuando elija, dejar solo ese y borrar este parámetro. */
+  const FILL_MODE = (() => {
+    const m = new URLSearchParams(location.search).get("relleno");
+    return ["trama", "contorno", "nodos", "velo"].includes(m) ? m : "trama";
+  })();
   const END = T.grow[0] + T.grow[1];
 
   /* ---------- curvas ---------- */
@@ -3987,12 +4001,12 @@ render(true);
     ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = color(a); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore();
   };
-  const guideCross = (P, k, a) => {   /* guías punteadas que salen del nodo hacia los bordes */
+  const guideCross = (P, k, a, col = cream) => {   /* guías punteadas que salen del nodo hacia los bordes */
     const L = Math.max(W, H) * k;
-    dashLine(P.x - L, P.y, P.x + L, P.y, a); dashLine(P.x, P.y - L, P.x, P.y + L, a);
+    dashLine(P.x - L, P.y, P.x + L, P.y, a, col); dashLine(P.x, P.y - L, P.x, P.y + L, a, col);
   };
-  const node = (P, fill, a, sc = 1) => {
-    const h = 3.5 * sc; ctx.fillStyle = fill; ctx.strokeStyle = cream(a); ctx.lineWidth = 1;
+  const node = (P, fill, a, sc = 1, col = cream) => {
+    const h = 3.5 * sc; ctx.fillStyle = fill; ctx.strokeStyle = col(a); ctx.lineWidth = 1;
     ctx.fillRect(P.x - h, P.y - h, h * 2, h * 2); ctx.strokeRect(P.x - h, P.y - h, h * 2, h * 2);
   };
   const handle = (N, Hp, color, a) => {
@@ -4004,34 +4018,43 @@ render(true);
     if(!P || a <= 0) return;
     ctx.globalAlpha = a; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
   };
-  const typed = (txt, P, dx, dy, since, a) => {
+  const typed = (txt, P, dx, dy, since, a, col = cream) => {
     const n = Math.floor(since * 30); if(n <= 0) return;
-    ctx.font = FONT; ctx.fillStyle = cream(a); ctx.textBaseline = "alphabetic";
+    ctx.font = FONT; ctx.fillStyle = col(a); ctx.textBaseline = "alphabetic";
     ctx.fillText(txt.slice(0, n), P.x + dx, P.y + dy);
   };
   const coord = p => `${Math.round(p.x)}:${Math.round(p.y)}`;
 
   /* ---------- 1 · macros ---------- */
+  const pointAt = (ch, L) => {
+    let acc = 0;
+    for(const s of ch.segs){ if(L <= acc + s.len) return at(s, tAt(s, Math.max(0, L - acc) / s.len)); acc += s.len; }
+    return ch.segs[ch.segs.length - 1].b;
+  };
   const drawMacro = (sh, tl) => {
-    const m = Math.min(W, H), X = cam({x:sh.f.x, y:sh.f.y, s:m / sh.span * (1 + (sh.push - 1) * eo(tl / sh.dur))});
-    ctx.fillStyle = RED; ctx.fillRect(0, 0, W, H);
+    const pal = sh.pal, LN = pal.line;
+    const tr = [.08, sh.dur - .42];
+    const p = eio(sp(tl, tr)), gIn = eo(sp(tl, [0, .5]));
+    /* la cámara se acerca y además acompaña un poco a la punta: más vivo */
+    const c0 = sh.chains[0], tipW = pointAt(c0.c, c0.c.len * (c0.r[0] + (c0.r[1] - c0.r[0]) * p));
+    const m = Math.min(W, H), F = lerp(sh.f, tipW, .3 * eo(sp(tl, [0, sh.dur])));
+    const X = cam({x:F.x, y:F.y, s:m / sh.span * (1 + (sh.push - 1) * eio(cl(tl / sh.dur)))});
+    ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, W, H);
     /* el logo entero, fantasma */
-    ctx.lineWidth = 1; ctx.strokeStyle = cream(.26);
+    ctx.lineWidth = 1; ctx.strokeStyle = LN(.26);
     PIECES.forEach(pc => { build(pc, 0, pc.len, X); ctx.closePath(); ctx.stroke(); });
-    const tr = [.12, sh.dur - .62];
-    const p = eio(sp(tl, tr)), gIn = eo(sp(tl, [0, .7]));
-    sh.labels.forEach(l => guideCross(X(l.p), gIn, .36));
+    sh.labels.forEach(l => guideCross(X(l.p), gIn, .36, LN));
     sh.chains.forEach(({c, r}) => {
       const L0 = c.len * r[0], L1 = c.len * r[1], L = L0 + (L1 - L0) * p;
       const when = Lx => tr[0] + ieio(cl((Lx - L0) / (L1 - L0))) * tr[1];   /* cuándo pasa la punta */
       if(sh.hl) c.handles.forEach(h => { if(h.at >= L0 && h.at <= L){
-        const N = X(h.n), Hp = X(h.h); handle(N, Hp, cream, .75);
-        typed(coord(h.h), Hp, 8, -8, tl - when(h.at), .85);
+        const N = X(h.n), Hp = X(h.h); handle(N, Hp, LN, .75);
+        typed(coord(h.h), Hp, 8, -8, tl - when(h.at), .85, LN);
       }});
-      ctx.lineWidth = 1.6; ctx.strokeStyle = cream(.95);
+      ctx.lineWidth = 1.6; ctx.strokeStyle = LN(.95);
       const tip = build(c, L0, L, X); if(tip) ctx.stroke();
-      c.nodes.forEach(n => { if(n.at >= L0 - .01 && n.at <= L) node(X(n.p), RED, .95, 1.15); });
-      tipDot(tip, INK, 4.5, 1 - sp(tl, [tr[0] + tr[1], .3]));
+      c.nodes.forEach(n => { if(n.at >= L0 - .01 && n.at <= L) node(X(n.p), pal.bg, .95, 1.15, LN); });
+      tipDot(tip, pal.tip, 4.5, 1 - sp(tl, [tr[0] + tr[1], .3]));
     });
     sh.labels.forEach(l => {
       const hit = sh.chains.map(({c, r}) => {
@@ -4041,31 +4064,76 @@ render(true);
         if(n.at < L0 - .01 || n.at > L1 + .01) return null;
         return tr[0] + ieio(cl((n.at - L0) / (L1 - L0))) * tr[1];
       }).find(v => v !== null);
-      typed(coord(l.p), X(l.p), l.dx, l.dy, tl - (hit ?? .2), .95);
+      typed(coord(l.p), X(l.p), l.dx, l.dy, tl - (hit ?? .2), .95, LN);
     });
   };
 
-  /* ---------- relleno que fluye: ola que sube (o que se va) ---------- */
-  const wave = (level, below, time, amp, X) => {
-    ctx.beginPath();
-    for(let i = 0; i <= 56; i++){
-      const x = -4 + (VB_W + 8) * i / 56;
-      const y = level + amp * (1.5 * Math.sin(x * .105 + time * 3.6) + .8 * Math.sin(x * .27 - time * 2.4 + 1.3));
-      const P = X({x, y}); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y);
+  /* ---------- relleno: cuatro maneras de construirlo (p 0 → 1; al vaciarse, 1 → 0) ---------- */
+  const boxOf = pc => pc.box || (pc.box = (() => {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    pc.segs.forEach(s => { for(let i = 0; i <= 16; i++){ const q = at(s, i / 16);
+      x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); } });
+    return {x0, y0, x1, y1};
+  })());
+  const solidPiece = (pc, X) => { ctx.fillStyle = cream(1); build(pc, 0, pc.len, X); ctx.closePath(); ctx.fill(); };
+  const FILLS = {
+    /* A · trama: la mano sombrea con líneas paralelas y la trama se cierra hasta ser sólida */
+    trama(pc, X, p, s){
+      const B = boxOf(pc), th = -Math.PI / 3, d = {x:Math.cos(th), y:Math.sin(th)}, n = {x:-d.y, y:d.x};
+      const cs = [[B.x0,B.y0],[B.x1,B.y0],[B.x0,B.y1],[B.x1,B.y1]].map(([x, y]) => x * n.x + y * n.y);
+      const cmin = Math.min(...cs), cmax = Math.max(...cs), u = 1.7, N = Math.ceil((cmax - cmin) / u);
+      const M = {x:(B.x0 + B.x1) / 2, y:(B.y0 + B.y1) / 2}, mn = M.x * n.x + M.y * n.y;
+      const diag = Math.hypot(B.x1 - B.x0, B.y1 - B.y0) / 2 + 2;
+      const h = cl(p / .62), q = eio(cl((p - .55) / .45));
+      ctx.strokeStyle = cream(.9 + .1 * q); ctx.lineWidth = 1 + q * u * s * 1.15; ctx.lineCap = "butt";
+      ctx.beginPath();
+      for(let i = 0; i < N; i++){
+        const lp = eo(cl((h - i / N * .7) / .3)); if(lp <= 0) break;
+        const c = cmin + (i + .5) * u, o = {x:M.x + n.x * (c - mn), y:M.y + n.y * (c - mn)};
+        const sg = i % 2 ? -1 : 1;   /* zigzag, como una mano que va y vuelve */
+        const A = X({x:o.x - d.x * diag * sg, y:o.y - d.y * diag * sg});
+        const E = X({x:o.x + d.x * diag * sg * (2 * lp - 1), y:o.y + d.y * diag * sg * (2 * lp - 1)});
+        ctx.moveTo(A.x, A.y); ctx.lineTo(E.x, E.y);
+      }
+      ctx.stroke();
+      if(q >= 1) solidPiece(pc, X);
+    },
+    /* B · contorno: el trazo se engrosa hacia dentro, con ecos que van por delante */
+    contorno(pc, X, p, s){
+      const w = eio(p) * 2 * 30 * s;
+      ctx.lineJoin = "round";
+      [[24, .08], [12, .16], [5, .3]].forEach(([e, a]) => {
+        ctx.strokeStyle = cream(a * Math.sin(Math.PI * cl(p * 1.1))); ctx.lineWidth = w + e * 2;
+        build(pc, 0, pc.len, X); ctx.closePath(); ctx.stroke();
+      });
+      ctx.strokeStyle = cream(1); ctx.lineWidth = Math.max(.01, w);
+      build(pc, 0, pc.len, X); ctx.closePath(); ctx.stroke();
+      if(p >= 1) solidPiece(pc, X);
+    },
+    /* C · nodos: el color brota de cada nodo de construcción y se une */
+    nodos(pc, X, p, s){
+      const ns = pc.nodes, R = 44 * s;
+      ns.forEach((nd, k) => {
+        const rp = eio(cl((p - k / ns.length * .45) / .55)); if(rp <= 0) return;
+        const P = X(nd.p);
+        ctx.fillStyle = cream(1); ctx.beginPath(); ctx.arc(P.x, P.y, rp * R, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = cream(.45 * (1 - rp)); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(P.x, P.y, rp * R + 10, 0, Math.PI * 2); ctx.stroke();
+      });
+      if(p >= 1) solidPiece(pc, X);
+    },
+    /* D · velo: como en las piezas de motion — translúcido y luego sólido */
+    velo(pc, X, p){
+      const a = Math.max(.3 * eo(cl(p / .35)), eio(cl((p - .4) / .6)));
+      ctx.fillStyle = cream(a); build(pc, 0, pc.len, X); ctx.closePath(); ctx.fill();
     }
-    const yE = below ? VB_H + 12 : -12, A = X({x:VB_W + 4, y:yE}), B = X({x:-4, y:yE});
-    ctx.lineTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.closePath();
   };
-  const levelOf = p => VB_H + 3 - p * (VB_H + 8);
-  const pieceFill = (pc, X, time, lead, solid, drain) => {
+  const pieceFill = (pc, X, p) => {
+    if(p <= 0) return;
+    const A = X({x:0, y:0}), B = X({x:1, y:0}), s = B.x - A.x;   /* px por unidad */
     ctx.save();
     build(pc, 0, pc.len, X); ctx.closePath(); ctx.clip();
-    if(drain > 0){                     /* se vacía desde abajo */
-      ctx.fillStyle = cream(1); wave(levelOf(drain), false, time, Math.sin(Math.PI * drain), X); ctx.fill();
-    } else {
-      if(lead > 0){ ctx.fillStyle = cream(.28); wave(levelOf(lead), true, time, Math.sin(Math.PI * lead), X); ctx.fill(); }
-      if(solid > 0){ ctx.fillStyle = cream(1); wave(levelOf(solid), true, time + .7, Math.sin(Math.PI * solid), X); ctx.fill(); }
-    }
+    FILLS[FILL_MODE](pc, X, p, s);
     ctx.restore();
   };
 
@@ -4169,10 +4237,9 @@ render(true);
       ctx.restore();
     }
 
-    /* relleno que fluye, pieza por pieza */
+    /* relleno, pieza por pieza; al vaciarse, el mismo gesto al revés */
     if(dr < 1) [[0, T.fillP], [1, T.fillV]].forEach(([i, f]) => {
-      const lead = eio(sp(tc, f)), solid = eio(sp(tc, [f[0] + T.solidLag, f[1]]));
-      pieceFill(PIECES[i], X, time + i, lead, solid, dr);
+      pieceFill(PIECES[i], X, dr > 0 ? 1 - dr : sp(tc, f));
     });
 
     /* contorno trazado: la punta dibuja; los nodos aparecen al pasar */
