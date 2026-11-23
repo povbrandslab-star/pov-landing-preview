@@ -275,28 +275,11 @@ body{margin:0; background:#191918}
 @media(min-width:920px){.contacto__grid{grid-template-columns:.72fr 1.28fr; align-items:start}}
 </style>
 
-<!-- INTRO · EL PUNTO (2026-11-23). Va FUERA de #stage a propósito: render() rehace
-     #stage al cambiar idioma o paleta y la entrada se repetiría. Una sola pasada por carga. -->
+<!-- INTRO · CONSTRUCCIÓN DEL LOGO (2026-11-23). Va FUERA de #stage a propósito: render()
+     rehace #stage al cambiar idioma o paleta y la entrada se repetiría. Una sola pasada por carga. -->
 <section class="ipt" id="intro" aria-label="POV Brands Lab">
-  <div class="ipt__cut">
-    <div class="ipt__fill">
-      <canvas class="ipt__tex"></canvas>
-      <video class="ipt__vid" muted playsinline loop preload="auto" aria-hidden="true"></video>
-    </div>
-  </div>
-  <svg class="ipt__logo" viewBox="0 0 130.91 65.6532" aria-hidden="true" focusable="false">
-    <defs><clipPath id="iptPour"><rect class="ipt__pour" x="-2" y="67" width="135" height="0"/></clipPath></defs>
-    <g class="ipt__solid" clip-path="url(#iptPour)">
-      <path d="M63.0111 0.0402075L63.0283 0.0804151C78.1119 3.15342 89.4561 16.4966 89.4561 32.4877C89.4561 38.8347 87.664 44.7682 84.5623 49.7999L84.6887 50.0871L93.3333 65.6474L130.91 0L63.0111 0.0402075Z"/>
-      <path d="M0 0V63.8955C13.6246 63.8955 26.2555 59.6335 36.6233 52.3502C39.6791 50.2192 42.5396 47.8068 45.176 45.176C49.5759 40.7819 53.3324 35.7445 56.3078 30.2188C59.4842 23.1021 61.2533 15.2157 61.2533 6.91569C61.2533 4.57217 61.1097 2.2631 60.834 0H0Z"/>
-    </g>
-    <g class="ipt__lines">
-      <path class="ipt__ln" pathLength="100" d="M0 0V63.8955C13.6246 63.8955 26.2555 59.6335 36.6233 52.3502C39.6791 50.2192 42.5396 47.8068 45.176 45.176C49.5759 40.7819 53.3324 35.7445 56.3078 30.2188C59.4842 23.1021 61.2533 15.2157 61.2533 6.91569C61.2533 4.57217 61.1097 2.2631 60.834 0H0Z"/>
-      <circle class="ipt__ln" pathLength="100" cx="56.37" cy="32.49" r="33.09" transform="rotate(-90 56.37 32.49)"/>
-      <path class="ipt__ln" pathLength="100" d="M63.0111 0.0402075L63.0283 0.0804151C78.1119 3.15342 89.4561 16.4966 89.4561 32.4877C89.4561 38.8347 87.664 44.7682 84.5623 49.7999L84.6887 50.0871L93.3333 65.6474L130.91 0L63.0111 0.0402075Z"/>
-    </g>
-  </svg>
-  <div class="ipt__count" aria-hidden="true"><span class="ipt__lbl">Cargando</span><span class="ipt__num">000</span></div>
+  <canvas class="ipt__cv" aria-hidden="true"></canvas>
+  <video class="ipt__vid" muted playsinline loop preload="auto" aria-hidden="true"></video>
   <a class="ipt__down" href="#stage" aria-label="Ir al contenido">&#8595;</a>
 </section>
 
@@ -3820,172 +3803,414 @@ render(true);
 </style>
 
 <style>
-/* ---- INTRO · EL PUNTO (2026-11-23) ----
-   Referencia: el loader de itsoffbrand.com. 1 se dibuja el contorno de la P,
-   la O escondida y la V · 2 la P y la V se llenan de hueso, de abajo arriba ·
-   3 la O se inunda de textura · 4 la P y la V se vacían y queda el círculo
-   entero · 5 el círculo cubre la pantalla y dentro entra el vídeo. */
-.ipt{position:relative; height:100vh; height:100svh; overflow:hidden; background:#191918; color:#E0DED5;
-  font-family:"Neue Haas Grotesk Display",system-ui,sans-serif}
-.ipt__cut,.ipt__fill,.ipt__tex,.ipt__vid{position:absolute; inset:0; width:100%; height:100%}
-.ipt__fill{clip-path:circle(0px at 50% 50%)}
-.ipt__vid{object-fit:cover; opacity:0}
-.ipt__logo{position:absolute; overflow:visible}
-.ipt__solid{fill:#E0DED5}
-.ipt__ln{fill:none; stroke:#E0DED5; stroke-opacity:.5; stroke-dasharray:101 101; stroke-dashoffset:101}
-.ipt__count{position:absolute; display:flex; gap:30px; font-size:13px; letter-spacing:.04em;
-  text-transform:uppercase; font-variant-numeric:tabular-nums; opacity:0; pointer-events:none}
+/* ---- INTRO · CONSTRUCCIÓN DEL LOGO (2026-11-23) ----
+   Mismo lenguaje que el sistema de motion de POV (macros con coordenadas →
+   construcción con nodos → relleno), y de ahí el remate tipo itsoffbrand:
+   la O se inunda de color, la P y la V se vacían y el círculo cubre la pantalla.
+   Todo se pinta en un solo canvas. */
+.ipt{position:relative; height:100vh; height:100svh; overflow:hidden; background:#191918}
+.ipt__cv{position:absolute; inset:0; width:100%; height:100%; display:block}
+.ipt__vid{display:none}
 .ipt__down{position:absolute; right:clamp(18px,3vw,40px); bottom:clamp(18px,3vw,36px); width:44px; height:44px;
   display:grid; place-items:center; border-radius:50%; color:#E0DED5; text-decoration:none; font-size:18px;
+  font-family:"Neue Haas Grotesk Display",system-ui,sans-serif;
   border:1px solid rgba(224,222,213,.45); background:rgba(25,25,24,.35); backdrop-filter:blur(6px);
-  opacity:0; transform:translateY(8px); transition:opacity .5s, transform .5s, border-color .2s}
+  opacity:0; transform:translateY(8px); transition:opacity .6s, transform .6s, border-color .2s}
 .ipt__down:hover,.ipt__down:focus-visible{border-color:#E0DED5}
-.ipt.is-done .ipt__down{opacity:1; transform:none}
+.ipt.is-on .ipt__down{opacity:1; transform:none}
 </style>
 
 <script>
-/* INTRO · EL PUNTO. Runtime propio, fuera de render(). */
+/* INTRO · CONSTRUCCIÓN DEL LOGO. Runtime propio, fuera de render(). */
 (() => {
   const box = document.getElementById("intro");
   if(!box) return;
   /* Vídeo del punto: poner aquí la ruta (p. ej. "assets/hero-video.mp4").
-     Vacío = se queda la textura a pantalla completa. */
+     Vacío = el círculo se queda con la textura de color. */
   const INTRO_VIDEO = "";
 
+  const cv = box.querySelector(".ipt__cv"), ctx = cv.getContext("2d");
+  const vid = box.querySelector(".ipt__vid");
+  const tex = document.createElement("canvas"), tctx = tex.getContext("2d");
+
+  const INK = "#191918", RED = "#CA4C2D", TIP = "#DD7E66";
+  const cream = a => `rgba(224,222,213,${a})`;
+  const ceil = a => `rgba(142,176,199,${a})`;
+  const FONT = '400 13px "PP Neue Machina", system-ui, sans-serif';
+  if(document.fonts) document.fonts.load(FONT).catch(() => {});
+
+  /* ---------- geometría del logo, en unidades del SVG ---------- */
   const VB_W = 130.91, VB_H = 65.6532;
   const O = {x:56.37, y:32.49, r:33.09};   /* la O: el arco izquierdo de la V, completado */
-  const T = {
-    draw0:.25, draw:1.10, dO:.20, dV:.30,  /* contorno */
-    pour0:1.55, pour:.80,                  /* el hueso sube */
-    tex0:2.25, tex:.80,                    /* la O se inunda */
-    drain0:3.35, drain:.60,                /* P y V se vacían */
-    grow0:4.20, grow:1.25,                 /* el círculo cubre la pantalla */
-    vid0:4.80, vid:.80
+  const D = [
+    "M0 0V63.8955C13.6246 63.8955 26.2555 59.6335 36.6233 52.3502C39.6791 50.2192 42.5396 47.8068 45.176 45.176C49.5759 40.7819 53.3324 35.7445 56.3078 30.2188C59.4842 23.1021 61.2533 15.2157 61.2533 6.91569C61.2533 4.57217 61.1097 2.2631 60.834 0H0Z",
+    "M63.0111 0.0402075L63.0283 0.0804151C78.1119 3.15342 89.4561 16.4966 89.4561 32.4877C89.4561 38.8347 87.664 44.7682 84.5623 49.7999L84.6887 50.0871L93.3333 65.6474L130.91 0L63.0111 0.0402075Z"
+  ];
+  const lerp = (a, b, t) => ({x:a.x + (b.x - a.x) * t, y:a.y + (b.y - a.y) * t});
+  const at = (s, t) => {
+    if(s.k === "L") return lerp(s.a, s.b, t);
+    const u = 1 - t;
+    return {x:u*u*u*s.a.x + 3*u*u*t*s.c1.x + 3*u*t*t*s.c2.x + t*t*t*s.b.x,
+            y:u*u*u*s.a.y + 3*u*u*t*s.c1.y + 3*u*t*t*s.c2.y + t*t*t*s.b.y};
   };
-  const END = T.vid0 + T.vid;
+  const prep = s => {
+    const tab = [0]; let prev = s.a, L = 0;
+    for(let i = 1; i <= 32; i++){ const p = at(s, i / 32); L += Math.hypot(p.x - prev.x, p.y - prev.y); tab.push(L); prev = p; }
+    s.tab = tab; s.len = L; return s;
+  };
+  const parse = d => {
+    const tk = d.match(/[MLCVHZ]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi);
+    let i = 0, cmd = "", cur = null, start = null; const segs = [];
+    const n = () => parseFloat(tk[i++]);
+    const push = s => { prep(s); if(s.len > .05) segs.push(s); };   /* fuera restos de largo cero */
+    while(i < tk.length){
+      if(/[a-z]/i.test(tk[i])) cmd = tk[i++].toUpperCase();
+      if(cmd === "M"){ cur = start = {x:n(), y:n()}; cmd = "L"; continue; }
+      if(cmd === "L"){ const p = {x:n(), y:n()}; push({k:"L", a:cur, b:p}); cur = p; }
+      else if(cmd === "V"){ const p = {x:cur.x, y:n()}; push({k:"L", a:cur, b:p}); cur = p; }
+      else if(cmd === "H"){ const p = {x:n(), y:cur.y}; push({k:"L", a:cur, b:p}); cur = p; }
+      else if(cmd === "C"){ const c1 = {x:n(), y:n()}, c2 = {x:n(), y:n()}, p = {x:n(), y:n()};
+        push({k:"C", a:cur, c1, c2, b:p}); cur = p; }
+      else if(cmd === "Z"){ push({k:"L", a:cur, b:start}); cur = start; }
+    }
+    return segs;
+  };
+  const rev = s => ({k:s.k, a:s.b, b:s.a, c1:s.c2, c2:s.c1, len:s.len, tab:s.tab.map((_, i) => s.len - s.tab[32 - i])});
+  const tAt = (s, f) => {
+    const L = f * s.len, tb = s.tab;
+    for(let i = 0; i < 32; i++) if(L <= tb[i + 1]) return (i + (L - tb[i]) / ((tb[i + 1] - tb[i]) || 1)) / 32;
+    return 1;
+  };
+  const sub = (s, t0, t1) => {
+    if(s.k === "L") return {k:"L", a:at(s, t0), b:at(s, t1)};
+    const cut = (q, t) => {
+      const p01 = lerp(q.a, q.c1, t), p12 = lerp(q.c1, q.c2, t), p23 = lerp(q.c2, q.b, t);
+      const p012 = lerp(p01, p12, t), p123 = lerp(p12, p23, t), p = lerp(p012, p123, t);
+      return [{k:"C", a:q.a, c1:p01, c2:p012, b:p}, {k:"C", a:p, c1:p123, c2:p23, b:q.b}];
+    };
+    const left = t1 < 1 ? cut(s, t1)[0] : s;
+    return t0 > 0 ? cut(left, t0 / t1)[1] : left;
+  };
+  const PATHS = D.map(parse);           /* P: 7 tramos · V: 6 tramos */
+  const chainOf = list => {             /* [pieza, tramo, invertido] → cadena con nodos y manejadores */
+    const segs = list.map(([p, k, r]) => r ? rev(PATHS[p][k]) : PATHS[p][k]);
+    const nodes = [], handles = []; let acc = 0;
+    segs.forEach((s, i) => {
+      if(i === 0) nodes.push({p:s.a, at:0});
+      if(s.k === "C"){ handles.push({n:s.a, h:s.c1, at:acc}); handles.push({n:s.b, h:s.c2, at:acc + s.len}); }
+      acc += s.len;
+      nodes.push({p:s.b, at:acc});
+    });
+    return {segs, nodes, handles, len:acc};
+  };
+  const pieceChain = p => chainOf(PATHS[p].map((_, k) => [p, k, 0]));
+  const PIECES = [pieceChain(0), pieceChain(1)];
 
-  const q = s => box.querySelector(s);
-  const fill = q(".ipt__fill"), cut = q(".ipt__cut"), logo = q(".ipt__logo"), count = q(".ipt__count"),
-        num = q(".ipt__num"), linesG = q(".ipt__lines"), pour = q(".ipt__pour"),
-        tex = q(".ipt__tex"), ctx = tex.getContext("2d"), vid = q(".ipt__vid");
-  const lines = [...box.querySelectorAll(".ipt__ln")];
-  if((document.documentElement.lang || "").startsWith("en")){
-    q(".ipt__lbl").textContent = "Loading";
-    q(".ipt__down").setAttribute("aria-label", "Go to content");
-  }
+  /* Construye en el path actual la cadena entre las longitudes L0 y L1. Devuelve la punta. */
+  const build = (ch, L0, L1, X, fresh = true) => {
+    if(fresh) ctx.beginPath();
+    let acc = 0, first = true, tip = null;
+    for(const s of ch.segs){
+      const a = acc, b = acc + s.len; acc = b;
+      if(b <= L0 || a >= L1) continue;
+      const q = sub(s, tAt(s, Math.max(0, L0 - a) / s.len), tAt(s, Math.min(s.len, L1 - a) / s.len));
+      const A = X(q.a), B = X(q.b);
+      if(first){ ctx.moveTo(A.x, A.y); first = false; }
+      if(q.k === "C"){ const c1 = X(q.c1), c2 = X(q.c2); ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, B.x, B.y); }
+      else ctx.lineTo(B.x, B.y);
+      tip = B;
+    }
+    return tip;
+  };
 
+  /* ---------- tiempos (s) ---------- */
+  /* Macros: tres tomas cerradas con corte seco, como en el sistema de motion.
+     f = punto que mira la cámara · span = unidades visibles en el lado corto ·
+     r = tramo de la cadena que se recorre (fracción de su largo). */
+  const SHOTS = [
+    { dur:2.0, f:{x:62, y:7},  span:24, push:1.12,          /* encuentro de las dos piezas */
+      chains:[ {c:chainOf([[0,5,1],[0,4,1]]), r:[0, .78]}, {c:chainOf([[1,0,0]]), r:[0, .62]} ],
+      labels:[ {p:{x:60.834, y:0}, dx:-46, dy:-12}, {p:{x:63.011, y:.04}, dx:10, dy:-12}, {p:{x:61.2533, y:6.9157}, dx:-46, dy:4} ] },
+    { dur:2.0, f:{x:9, y:11},  span:34, push:1.10,          /* esquina recta */
+      chains:[ {c:chainOf([[0,6,0],[0,0,0]]), r:[.30, .74]} ],
+      labels:[ {p:{x:0, y:0}, dx:10, dy:-10} ] },
+    { dur:2.4, f:{x:20, y:56}, span:34, push:1.10, hl:true, /* curva inferior izquierda, con manejadores */
+      chains:[ {c:chainOf([[0,0,0],[0,1,0]]), r:[.34, 1]} ],
+      labels:[ {p:{x:0, y:63.8955}, dx:-44, dy:20}, {p:{x:36.6233, y:52.3502}, dx:12, dy:18} ] }
+  ];
+  const MACRO = SHOTS.reduce((s, x) => s + x.dur, 0);   /* 6,4 s */
+  const K = MACRO;                                      /* arranca la construcción */
+  const T = {
+    guides:[K, 1.1], compass:[K + .3, 1.5],
+    traceP:[K + .6, 2.6], traceV:[K + .9, 2.6],
+    zoom:[K, 3.9],
+    fillP:[K + 3.2, 1.5], fillV:[K + 3.5, 1.5], solidLag:.5,
+    linesOut:[K + 4.9, .8],
+    tex:[K + 5.3, 1.1],
+    drain:[K + 6.8, 1.1],
+    grow:[K + 8.0, 1.6],
+    vid:[K + 8.7, .9],
+    on: 1.2
+  };
+  const END = T.grow[0] + T.grow[1];
+
+  /* ---------- curvas ---------- */
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
-  const span = (t, a, d) => cl((t - a) / d);
+  const sp = (t, [a, d]) => cl((t - a) / d);
   const eio = p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
+  const ieio = y => y < .5 ? Math.cbrt(y / 4) : 1 - Math.cbrt(2 * (1 - y)) / 2;
   const eo = p => 1 - Math.pow(1 - p, 3);
   const eioQ = p => p < .5 ? 8*p*p*p*p : 1 - Math.pow(-2*p + 2, 4) / 2;
 
-  let G = null;
+  /* ---------- lienzo ---------- */
+  let W = 0, H = 0, dpr = 1, base = null, grain = null;
   const layout = () => {
-    const vw = box.clientWidth, vh = box.clientHeight;
-    const w = Math.min(vw < 720 ? vw * .62 : vw * .34, 520);
-    const s = w / VB_W, h = VB_H * s;
-    const left = (vw - w) / 2, top = (vh - h) / 2;
-    Object.assign(logo.style, {left:left + "px", top:top + "px", width:w + "px", height:h + "px"});
-    lines.forEach(l => l.style.strokeWidth = (1 / s).toFixed(4));
-    const cx = left + O.x * s, cy = top + O.y * s, r0 = O.r * s;
-    count.style.left = (cx - r0 * .35) + "px";
-    count.style.top = (top + h + Math.max(22, h * .14)) + "px";
-    const k = 1 / 3;   /* textura a 1/3: el reescalado ya la suaviza */
-    tex.width = Math.max(2, Math.round(vw * k)); tex.height = Math.max(2, Math.round(vh * k));
-    G = {top, cx, cy, r0, k, R:Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy)) * 1.08};
+    W = box.clientWidth; H = box.clientHeight; dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    tex.width = Math.max(2, Math.round(W / 3)); tex.height = Math.max(2, Math.round(H / 3));
+    const w = Math.min(W < 720 ? W * .62 : W * .34, 520);
+    base = {x:VB_W / 2, y:VB_H / 2, s:w / VB_W};
+  };
+  const cam = c => p => ({x:W / 2 + (p.x - c.x) * c.s, y:H / 2 + (p.y - c.y) * c.s});
+
+  /* grano sutil, como en las piezas de motion */
+  const makeGrain = () => {
+    const g = document.createElement("canvas"); g.width = g.height = 160;
+    const gc = g.getContext("2d"), im = gc.createImageData(160, 160);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for(let i = 0; i < im.data.length; i += 4){ const v = rnd() * 255; im.data[i] = im.data[i+1] = im.data[i+2] = v; im.data[i+3] = 13; }
+    gc.putImageData(im, 0, 0);
+    return ctx.createPattern(g, "repeat");
   };
 
-  /* Manchas de la paleta de POV; viven en coordenadas del círculo y crecen con él */
-  const BLOBS = [
-    {c:"240,236,226", x:-.28, y:-.40, s:1.05, a:1,   f:.31, p:0  },  /* hueso: el brillo */
-    {c:"212,91,61",   x: .05, y:-.05, s:.80,  a:.95, f:.23, p:1.7},  /* #D45B3D */
-    {c:"176,48,30",   x:-.50, y: .15, s:.62,  a:.85, f:.27, p:3.1},  /* #B0301E */
-    {c:"221,126,102", x: .25, y: .48, s:.70,  a:.80, f:.19, p:4.4},  /* #DD7E66 */
-    {c:"142,176,199", x: .58, y: .28, s:.68,  a:.95, f:.29, p:2.3},  /* #8EB0C7 */
-    {c:"176,200,216", x: .48, y:-.55, s:.50,  a:.70, f:.21, p:5.2},  /* #B0C8D8 */
-    {c:"165,139,255", x:-.10, y: .70, s:.38,  a:.35, f:.17, p:.9 }   /* el morado del proceso */
-  ];
-  const paintTex = (cx, cy, r, time, flat) => {
-    const k = G.k, X = cx * k, Y = cy * k, Rr = r * k, W = tex.width, H = tex.height;
-    ctx.fillStyle = "#D45B3D"; ctx.fillRect(0, 0, W, H);
-    for(const b of BLOBS){
-      const bx = X + Rr * (b.x + .22 * Math.sin(time * b.f * 2.1 + b.p));
-      const by = Y + Rr * (b.y + .22 * Math.cos(time * b.f * 1.7 + b.p * 1.3));
-      const br = Rr * b.s * (1 + .12 * Math.sin(time * b.f * 3 + b.p));
-      const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-      g.addColorStop(0, `rgba(${b.c},${b.a})`); g.addColorStop(1, `rgba(${b.c},0)`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const dashLine = (x0, y0, x1, y1, a, color = cream) => {
+    ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = color(a); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore();
+  };
+  const guideCross = (P, k, a) => {   /* guías punteadas que salen del nodo hacia los bordes */
+    const L = Math.max(W, H) * k;
+    dashLine(P.x - L, P.y, P.x + L, P.y, a); dashLine(P.x, P.y - L, P.x, P.y + L, a);
+  };
+  const node = (P, fill, a, sc = 1) => {
+    const h = 3.5 * sc; ctx.fillStyle = fill; ctx.strokeStyle = cream(a); ctx.lineWidth = 1;
+    ctx.fillRect(P.x - h, P.y - h, h * 2, h * 2); ctx.strokeRect(P.x - h, P.y - h, h * 2, h * 2);
+  };
+  const handle = (N, Hp, color, a) => {
+    ctx.strokeStyle = color(a * .8); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(N.x, N.y); ctx.lineTo(Hp.x, Hp.y); ctx.stroke();
+    ctx.fillStyle = color(a); ctx.beginPath(); ctx.arc(Hp.x, Hp.y, 2.6, 0, Math.PI * 2); ctx.fill();
+  };
+  const tipDot = (P, color, r, a) => {
+    if(!P || a <= 0) return;
+    ctx.globalAlpha = a; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  };
+  const typed = (txt, P, dx, dy, since, a) => {
+    const n = Math.floor(since * 30); if(n <= 0) return;
+    ctx.font = FONT; ctx.fillStyle = cream(a); ctx.textBaseline = "alphabetic";
+    ctx.fillText(txt.slice(0, n), P.x + dx, P.y + dy);
+  };
+  const coord = p => `${Math.round(p.x)}:${Math.round(p.y)}`;
+
+  /* ---------- 1 · macros ---------- */
+  const drawMacro = (sh, tl) => {
+    const m = Math.min(W, H), X = cam({x:sh.f.x, y:sh.f.y, s:m / sh.span * (1 + (sh.push - 1) * eo(tl / sh.dur))});
+    ctx.fillStyle = RED; ctx.fillRect(0, 0, W, H);
+    /* el logo entero, fantasma */
+    ctx.lineWidth = 1; ctx.strokeStyle = cream(.26);
+    PIECES.forEach(pc => { build(pc, 0, pc.len, X); ctx.closePath(); ctx.stroke(); });
+    const tr = [.12, sh.dur - .62];
+    const p = eio(sp(tl, tr)), gIn = eo(sp(tl, [0, .7]));
+    sh.labels.forEach(l => guideCross(X(l.p), gIn, .36));
+    sh.chains.forEach(({c, r}) => {
+      const L0 = c.len * r[0], L1 = c.len * r[1], L = L0 + (L1 - L0) * p;
+      const when = Lx => tr[0] + ieio(cl((Lx - L0) / (L1 - L0))) * tr[1];   /* cuándo pasa la punta */
+      if(sh.hl) c.handles.forEach(h => { if(h.at >= L0 && h.at <= L){
+        const N = X(h.n), Hp = X(h.h); handle(N, Hp, cream, .75);
+        typed(coord(h.h), Hp, 8, -8, tl - when(h.at), .85);
+      }});
+      ctx.lineWidth = 1.6; ctx.strokeStyle = cream(.95);
+      const tip = build(c, L0, L, X); if(tip) ctx.stroke();
+      c.nodes.forEach(n => { if(n.at >= L0 - .01 && n.at <= L) node(X(n.p), RED, .95, 1.15); });
+      tipDot(tip, INK, 4.5, 1 - sp(tl, [tr[0] + tr[1], .3]));
+    });
+    sh.labels.forEach(l => {
+      const hit = sh.chains.map(({c, r}) => {
+        const n = c.nodes.find(n => Math.hypot(n.p.x - l.p.x, n.p.y - l.p.y) < .2);
+        if(!n) return null;
+        const L0 = c.len * r[0], L1 = c.len * r[1];
+        if(n.at < L0 - .01 || n.at > L1 + .01) return null;
+        return tr[0] + ieio(cl((n.at - L0) / (L1 - L0))) * tr[1];
+      }).find(v => v !== null);
+      typed(coord(l.p), X(l.p), l.dx, l.dy, tl - (hit ?? .2), .95);
+    });
+  };
+
+  /* ---------- relleno que fluye: ola que sube (o que se va) ---------- */
+  const wave = (level, below, time, amp, X) => {
+    ctx.beginPath();
+    for(let i = 0; i <= 56; i++){
+      const x = -4 + (VB_W + 8) * i / 56;
+      const y = level + amp * (1.5 * Math.sin(x * .105 + time * 3.6) + .8 * Math.sin(x * .27 - time * 2.4 + 1.3));
+      const P = X({x, y}); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y);
     }
-    if(flat < 1){   /* volumen de esfera; se aplana al crecer */
-      const g = ctx.createRadialGradient(X - Rr * .35, Y - Rr * .4, Rr * .2, X, Y, Rr * 1.05);
+    const yE = below ? VB_H + 12 : -12, A = X({x:VB_W + 4, y:yE}), B = X({x:-4, y:yE});
+    ctx.lineTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.closePath();
+  };
+  const levelOf = p => VB_H + 3 - p * (VB_H + 8);
+  const pieceFill = (pc, X, time, lead, solid, drain) => {
+    ctx.save();
+    build(pc, 0, pc.len, X); ctx.closePath(); ctx.clip();
+    if(drain > 0){                     /* se vacía desde abajo */
+      ctx.fillStyle = cream(1); wave(levelOf(drain), false, time, Math.sin(Math.PI * drain), X); ctx.fill();
+    } else {
+      if(lead > 0){ ctx.fillStyle = cream(.28); wave(levelOf(lead), true, time, Math.sin(Math.PI * lead), X); ctx.fill(); }
+      if(solid > 0){ ctx.fillStyle = cream(1); wave(levelOf(solid), true, time + .7, Math.sin(Math.PI * solid), X); ctx.fill(); }
+    }
+    ctx.restore();
+  };
+
+  /* ---------- textura de la O: manchas de la paleta de POV ---------- */
+  const BLOBS = [
+    {c:"240,236,226", x:-.28, y:-.40, s:1.05, a:1,   f:.31, p:0  },
+    {c:"212,91,61",   x: .05, y:-.05, s:.80,  a:.95, f:.23, p:1.7},
+    {c:"176,48,30",   x:-.50, y: .15, s:.62,  a:.85, f:.27, p:3.1},
+    {c:"221,126,102", x: .25, y: .48, s:.70,  a:.80, f:.19, p:4.4},
+    {c:"142,176,199", x: .58, y: .28, s:.68,  a:.95, f:.29, p:2.3},
+    {c:"176,200,216", x: .48, y:-.55, s:.50,  a:.70, f:.21, p:5.2},
+    {c:"165,139,255", x:-.10, y: .70, s:.38,  a:.35, f:.17, p:.9 }
+  ];
+  const paintTex = (C, r, time, flat) => {
+    const k = tex.width / W, X0 = C.x * k, Y0 = C.y * k, Rr = r * k, w = tex.width, h = tex.height;
+    tctx.fillStyle = "#D45B3D"; tctx.fillRect(0, 0, w, h);
+    for(const b of BLOBS){
+      const bx = X0 + Rr * (b.x + .22 * Math.sin(time * b.f * 2.1 + b.p));
+      const by = Y0 + Rr * (b.y + .22 * Math.cos(time * b.f * 1.7 + b.p * 1.3));
+      const br = Rr * b.s * (1 + .12 * Math.sin(time * b.f * 3 + b.p));
+      const g = tctx.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, `rgba(${b.c},${b.a})`); g.addColorStop(1, `rgba(${b.c},0)`);
+      tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
+    }
+    if(flat < 1){
+      const g = tctx.createRadialGradient(X0 - Rr * .35, Y0 - Rr * .4, Rr * .2, X0, Y0, Rr * 1.05);
       g.addColorStop(0, "rgba(25,25,24,0)"); g.addColorStop(.75, "rgba(25,25,24,0)");
       g.addColorStop(1, `rgba(25,25,24,${.38 * (1 - flat)})`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
     }
   };
-
-  /* Círculo perfecto mientras es logo; borde algo orgánico mientras crece */
-  const shape = (cx, cy, r, wob, time) => {
-    if(wob < .001) return `circle(${r.toFixed(2)}px at ${cx.toFixed(2)}px ${cy.toFixed(2)}px)`;
-    const pts = [];
-    for(let i = 0; i < 120; i++){
+  const blob = (C, r, wob, time) => {
+    ctx.beginPath();
+    if(wob < .001){ ctx.arc(C.x, C.y, r, 0, Math.PI * 2); return; }
+    for(let i = 0; i <= 120; i++){
       const a = i / 120 * Math.PI * 2;
       const rr = r * (1 + wob * (.6 * Math.sin(3 * a + time * 1.7) + .4 * Math.sin(5 * a - time * 2.3 + 1)));
-      pts.push(`${(cx + rr * Math.cos(a)).toFixed(1)}px ${(cy + rr * Math.sin(a)).toFixed(1)}px`);
+      const x = C.x + rr * Math.cos(a), y = C.y + rr * Math.sin(a);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     }
-    return `polygon(${pts.join(",")})`;
+    ctx.closePath();
   };
 
   let vidOK = false;
   if(INTRO_VIDEO){
     vid.addEventListener("loadeddata", () => { vidOK = true; });
-    vid.addEventListener("error", () => { vidOK = false; vid.remove(); }, true);
+    vid.addEventListener("error", () => { vidOK = false; }, true);
     vid.src = INTRO_VIDEO;
-  } else vid.remove();
+  }
 
-  const frame = (t, now) => {
-    const {cx, cy, r0, R} = G;
-    [T.draw0, T.draw0 + T.dO, T.draw0 + T.dV].forEach((a, i) => {
-      lines[i].style.strokeDashoffset = (101 - eio(span(t, a, T.draw)) * 101).toFixed(2);
-    });
-    linesG.style.opacity = 1 - eo(span(t, T.drain0 + .15, .45));
+  /* ---------- 2-5 · construcción, relleno, la O, el círculo ---------- */
+  const drawBuild = (t, time) => {
+    const tc = t;
+    const z = 2.4 - 1.4 * eio(sp(tc, T.zoom));
+    const X = cam({x:base.x, y:base.y, s:base.s * z});
+    ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+    const la = 1 - eo(sp(tc, T.linesOut));
 
-    const up = eio(span(t, T.pour0, T.pour)), down = eio(span(t, T.drain0, T.drain));
-    const yTop = 67 - up * 69, yBot = 67 - down * 69;   /* sube de abajo; se vacía desde abajo */
-    pour.setAttribute("y", yTop.toFixed(3));
-    pour.setAttribute("height", Math.max(0, yBot - yTop).toFixed(3));
-
-    num.textContent = String(Math.round(100 * cl((t - T.draw0) / (T.tex0 + T.tex - T.draw0)))).padStart(3, "0");
-    count.style.opacity = eo(span(t, T.draw0, .4)) * (1 - eo(span(t, T.drain0, .35)));
-
-    const tx = eo(span(t, T.tex0, T.tex)), g = eioQ(span(t, T.grow0, T.grow));
-    let r = tx <= 0 ? 0 : r0 * (.18 + .82 * tx);
-    if(r) r += (R - r0) * g;
-    const wob = .026 * Math.sin(Math.PI * g) + .012 * eo(span(t, T.drain0 + T.drain, .3)) * (1 - g);
-    fill.style.clipPath = t >= END ? "none" : shape(cx, cy, r, wob, now / 1000);
-    fill.style.opacity = eo(span(t, T.tex0, T.tex * .6));
-    /* mientras es logo, el círculo no asoma por encima del borde del logo */
-    cut.style.clipPath = down < .5 ? `inset(${G.top.toFixed(1)}px 0 0 0)` : "none";
-
-    if(!(vidOK && t >= END)) paintTex(cx, cy, Math.max(r, r0), now / 1000, g);
-    if(vidOK){
-      if(t >= T.grow0 && vid.paused) vid.play().catch(() => {});
-      vid.style.opacity = eo(span(t, T.vid0, T.vid));
+    if(la > 0){
+      /* guías de construcción */
+      const gx = [0, O.x, 89.4561, 93.3333, VB_W], gy = [0, O.y, 63.8955, VB_H];
+      const L = Math.max(W, H);
+      gx.forEach((x, i) => { const k = eo(sp(tc, [T.guides[0] + i * .07, T.guides[1]])), P = X({x, y:O.y});
+        if(k > 0) dashLine(P.x, P.y - L * k, P.x, P.y + L * k, .2 * la); });
+      gy.forEach((y, i) => { const k = eo(sp(tc, [T.guides[0] + .15 + i * .07, T.guides[1]])), P = X({x:O.x, y});
+        if(k > 0) dashLine(P.x - L * k, P.y, P.x + L * k, P.y, .2 * la); });
+      /* compás: traza la circunferencia de la O */
+      const k = eio(sp(tc, T.compass));
+      if(k > 0){
+        const C = X(O), r = O.r * base.s * z, a0 = -Math.PI / 2, a1 = a0 + k * Math.PI * 2;
+        ctx.strokeStyle = cream(.5 * la); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(C.x, C.y, r, a0, a1); ctx.stroke();
+        const E = {x:C.x + r * Math.cos(a1), y:C.y + r * Math.sin(a1)};
+        const ka = la * (1 - sp(tc, [T.compass[0] + T.compass[1], .5]));
+        ctx.strokeStyle = cream(.35 * ka); ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.lineTo(E.x, E.y); ctx.stroke();
+        tipDot(E, TIP, 3, ka);
+        node(C, INK, .7 * la, .8);
+        typed("r " + O.r.toFixed(2), C, 12, 20, tc - T.compass[0], .7 * la);
+      }
     }
-    box.classList.toggle("is-done", t >= END);
+
+    /* la O, debajo del relleno: se inunda de color */
+    const txp = eo(sp(tc, T.tex)), dr = eio(sp(tc, T.drain)), g = eioQ(sp(tc, T.grow));
+    const C = X(O), r0 = O.r * base.s * z;
+    if(txp > 0){
+      const R = Math.hypot(Math.max(C.x, W - C.x), Math.max(C.y, H - C.y)) * 1.08;
+      const r = r0 * (.15 + .85 * txp) + (R - r0) * g;
+      const wob = .05 * Math.sin(Math.PI * txp) * (1 - g) + .026 * Math.sin(Math.PI * g);
+      paintTex(C, Math.max(r, r0), time, g);
+      ctx.save();
+      if(dr < .5){ const top = X({x:0, y:0}).y; ctx.beginPath(); ctx.rect(0, top, W, H); ctx.clip(); }
+      if(t < END){ blob(C, r, wob, time); ctx.clip(); }
+      ctx.globalAlpha = eo(sp(tc, [T.tex[0], T.tex[1] * .5]));
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(tex, 0, 0, W, H);
+      if(vidOK && tc >= T.vid[0]){
+        if(vid.paused) vid.play().catch(() => {});
+        const vw = vid.videoWidth || 16, vh = vid.videoHeight || 9, s = Math.max(W / vw, H / vh);
+        ctx.globalAlpha = eo(sp(tc, T.vid));
+        ctx.drawImage(vid, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+      }
+      ctx.restore();
+    }
+
+    /* relleno que fluye, pieza por pieza */
+    if(dr < 1) [[0, T.fillP], [1, T.fillV]].forEach(([i, f]) => {
+      const lead = eio(sp(tc, f)), solid = eio(sp(tc, [f[0] + T.solidLag, f[1]]));
+      pieceFill(PIECES[i], X, time + i, lead, solid, dr);
+    });
+
+    /* contorno trazado: la punta dibuja; los nodos aparecen al pasar */
+    if(la > 0) [[0, T.traceP], [1, T.traceV]].forEach(([i, tr]) => {
+      const pc = PIECES[i], p = eio(sp(tc, tr)), L = pc.len * p;
+      if(p <= 0) return;
+      ctx.lineWidth = 1.2; ctx.strokeStyle = cream(.85 * la);
+      const tip = build(pc, 0, L, X); if(tip){ if(p >= 1) ctx.closePath(); ctx.stroke(); }
+      const when = Lx => tr[0] + ieio(cl(Lx / pc.len)) * tr[1];
+      pc.handles.forEach(h => { if(h.at <= L) handle(X(h.n), X(h.h), ceil, .9 * la); });
+      pc.nodes.forEach(n => { if(n.at <= L) node(X(n.p), INK, .9 * la, .6 + .4 * eo(cl((tc - when(n.at)) / .25))); });
+      tipDot(tip, TIP, 3.5, la * (1 - sp(tc, [tr[0] + tr[1], .3])));
+    });
   };
 
-  /* Sin movimiento: directo al final. Si no, una pasada y la textura sigue
+  const frame = (t, now) => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const time = now / 1000;
+    if(t < MACRO){
+      let a = 0; for(const sh of SHOTS){ if(t < a + sh.dur){ drawMacro(sh, t - a); break; } a += sh.dur; }
+    } else drawBuild(t, time);
+    /* grano */
+    if(!grain) grain = makeGrain();
+    ctx.save(); ctx.translate((Math.floor(time * 24) * 37) % 160, (Math.floor(time * 24) * 53) % 160);
+    ctx.fillStyle = grain; ctx.fillRect(-160, -160, W + 320, H + 320); ctx.restore();
+    box.classList.toggle("is-on", t >= T.on);
+  };
+
+  /* Sin movimiento: directo al final. Si no, una pasada; luego la textura sigue
      respirando mientras el intro esté en pantalla. */
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let start = null, raf = 0, visible = true;
   const loop = now => {
     raf = 0;
     if(start === null) start = now;
-    const t = reduce ? END + 1 : Math.min((now - start) / 1000, END + 1);
+    const t = reduce ? END : Math.min((now - start) / 1000, END);
     frame(t, now);
-    if(visible && !(t > END && (reduce || vidOK))) raf = requestAnimationFrame(loop);
+    if(visible && !reduce) raf = requestAnimationFrame(loop);
   };
   layout();
   addEventListener("resize", () => { layout(); if(!raf) raf = requestAnimationFrame(loop); });
